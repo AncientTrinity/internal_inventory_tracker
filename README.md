@@ -1,6 +1,10 @@
 # Internal Inventory Tracker
 
-A new Flutter project.
+This is the Gui part of the Inventory tracker Gui part
+
+The api part is in its own github repo 
+
+https://github.com/AncientTrinity/Internal-inventory-tracker
 
 ## Getting Started
 
