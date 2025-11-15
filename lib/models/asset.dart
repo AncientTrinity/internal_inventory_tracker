@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Asset {
   final int id;
   final String internalId;

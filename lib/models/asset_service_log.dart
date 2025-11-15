@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class AssetServiceLog {
   final int id;
   final int assetId;
