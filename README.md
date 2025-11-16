@@ -8,13 +8,8 @@ https://github.com/AncientTrinity/Internal-inventory-tracker
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+To get started please start the local docker compose file within the other repo wait until it is up and then open the Internal inventory Tracker App either on 
 
-A few resources to get you started if this is your first Flutter project:
+Android 
+Or Web
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
