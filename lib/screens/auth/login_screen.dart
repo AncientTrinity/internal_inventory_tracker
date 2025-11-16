@@ -185,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         SizedBox(height: 4),
                         Text('Email: admin@example.com'),
-                        Text('Password: Check your backend seed data'),
+                        Text('Password: admin123'),
                       ],
                     ),
                   ),
