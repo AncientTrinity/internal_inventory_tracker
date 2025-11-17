@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/asset_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
+import 'screens/assets/asset_list_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/placeholder/placeholder_screen.dart';
@@ -21,6 +23,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
+        ChangeNotifierProvider(create: (_) => AssetProvider()),
       ],
       child: MaterialApp(
         title: 'Internal Inventory Tracker',
@@ -42,10 +45,8 @@ class InternalInventoryTrackerApp extends StatelessWidget {
           '/dashboard': (context) => const DashboardScreen(),
 
           // Common Features (All Roles)
-          '/assets': (context) => const PlaceholderScreen(
-            title: 'Assets Management',
-            description: 'Manage and track all company assets including computers, monitors, and peripherals.',
-          ),
+          '/assets': (context) => const AssetListScreen(),
+
           '/tickets': (context) => const PlaceholderScreen(
             title: 'Tickets Management',
             description: 'Create, track, and manage support tickets and service requests.',

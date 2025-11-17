@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Asset {
   final int id;
   final String internalId;
@@ -13,6 +15,10 @@ class Asset {
   final DateTime? nextServiceDate;
   final DateTime createdAt;
   final DateTime updatedAt;
+  
+  // Joined fields for display
+  final String? assignedToName;
+  final String? assignedToEmail;
 
   Asset({
     required this.id,
@@ -29,6 +35,8 @@ class Asset {
     this.nextServiceDate,
     required this.createdAt,
     required this.updatedAt,
+    this.assignedToName,
+    this.assignedToEmail,
   });
 
   factory Asset.fromJson(Map<String, dynamic> json) {
@@ -53,10 +61,109 @@ class Asset {
           : null,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
+      assignedToName: json['assigned_to_name'],
+      assignedToEmail: json['assigned_to_email'],
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'internal_id': internalId,
+      'asset_type': assetType,
+      'manufacturer': manufacturer,
+      'model': model,
+      'model_number': modelNumber,
+      'serial_number': serialNumber,
+      'status': status,
+      'in_use_by': inUseBy,
+      'date_purchased': datePurchased?.toIso8601String(),
+      'last_service_date': lastServiceDate?.toIso8601String(),
+      'next_service_date': nextServiceDate?.toIso8601String(),
+    };
+  }
+
+  // Helper methods
   bool get isAssigned => inUseBy != null;
   bool get needsService => nextServiceDate != null && 
       nextServiceDate!.isBefore(DateTime.now());
+  bool get isInUse => status == 'IN_USE';
+  bool get isInStorage => status == 'IN_STORAGE';
+  bool get isInRepair => status == 'REPAIR';
+  bool get isRetired => status == 'RETIRED';
+
+  String get statusDisplay {
+    switch (status) {
+      case 'IN_USE': return 'In Use';
+      case 'IN_STORAGE': return 'In Storage';
+      case 'REPAIR': return 'In Repair';
+      case 'RETIRED': return 'Retired';
+      default: return status;
+    }
+  }
+
+  Color get statusColor {
+    switch (status) {
+      case 'IN_USE': return Colors.green;
+      case 'IN_STORAGE': return Colors.blue;
+      case 'REPAIR': return Colors.orange;
+      case 'RETIRED': return Colors.grey;
+      default: return Colors.grey;
+    }
+  }
+
+  String get typeDisplay {
+    switch (assetType) {
+      case 'PC': return 'Computer';
+      case 'MONITOR': return 'Monitor';
+      case 'KEYBOARD': return 'Keyboard';
+      case 'MOUSE': return 'Mouse';
+      case 'HEADSET': return 'Headset';
+      case 'UPS': return 'UPS';
+      default: return assetType;
+    }
+  }
+}
+
+// Asset filters for search
+class AssetFilters {
+  final String? searchQuery;
+  final String? assetType;
+  final String? status;
+  final String? manufacturer;
+  final int? inUseBy;
+  final bool? needsService;
+
+  AssetFilters({
+    this.searchQuery,
+    this.assetType,
+    this.status,
+    this.manufacturer,
+    this.inUseBy,
+    this.needsService,
+  });
+
+  Map<String, String> toQueryParams() {
+    final params = <String, String>{};
+    
+    if (searchQuery != null && searchQuery!.isNotEmpty) {
+      params['q'] = searchQuery!;
+    }
+    if (assetType != null && assetType!.isNotEmpty) {
+      params['type'] = assetType!;
+    }
+    if (status != null && status!.isNotEmpty) {
+      params['status'] = status!;
+    }
+    if (manufacturer != null && manufacturer!.isNotEmpty) {
+      params['manufacturer'] = manufacturer!;
+    }
+    if (inUseBy != null) {
+      params['in_use_by'] = inUseBy.toString();
+    }
+    if (needsService == true) {
+      params['needs_service'] = 'true';
+    }
+    
+    return params;
+  }
 }
