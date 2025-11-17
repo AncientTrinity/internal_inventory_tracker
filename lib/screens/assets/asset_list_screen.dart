@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import '../../widgets/common/app_drawer.dart';
 import 'asset_detail_screen.dart';
+import 'asset_filter_sheet.dart' ;
 import 'asset_form_screen.dart';
 
 class AssetListScreen extends StatefulWidget {
@@ -66,6 +67,24 @@ class _AssetListScreenState extends State<AssetListScreen> {
     _searchController.clear();
   }
 
+  void _showFilterDialog() {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: AssetFilterSheet(
+          currentFilters: assetProvider.currentFilters,
+          onFiltersChanged: (newFilters) {
+            assetProvider.updateFilters(newFilters);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -95,13 +114,11 @@ class _AssetListScreenState extends State<AssetListScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const AssetFormScreen(),
-                  ),
-                );
-              },
-              tooltip: 'Add New Asset',
-            ),
+                  MaterialPageRoute(builder: (context) => const AssetFormScreen()),
+              );
+            },
+            tooltip: 'Add New Asset',
+          ),
           // Refresh
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -138,43 +155,60 @@ class _AssetListScreenState extends State<AssetListScreen> {
   }
 
   // Search and Filter Bar
-  Widget _buildSearchFilterBar(AssetProvider assetProvider) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          // Search Bar
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search assets...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        _applySearchFilter('');
-                      },
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8.0),
+Widget _buildSearchFilterBar(AssetProvider assetProvider) {
+  return Padding(
+    padding: const EdgeInsets.all(16.0),
+    child: Column(
+      children: [
+        // Single Search Bar with Filter Button
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search assets...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_searchController.text.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            _applySearchFilter('');
+                          },
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.filter_list),
+                        onPressed: _showFilterDialog,
+                        tooltip: 'Filters',
+                      ),
+                    ],
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
+                onChanged: _applySearchFilter,
               ),
             ),
-            onChanged: _applySearchFilter,
-          ),
-          const SizedBox(height: 12),
-          
-          // Active Filters
-          if (assetProvider.currentFilters.assetType != null ||
-              assetProvider.currentFilters.status != null ||
-              assetProvider.currentFilters.manufacturer != null)
-            _buildActiveFilters(assetProvider),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // Active Filters Display (only show if filters are active)
+        if (assetProvider.currentFilters.assetType != null ||
+            assetProvider.currentFilters.status != null ||
+            assetProvider.currentFilters.manufacturer != null ||
+            assetProvider.currentFilters.needsService == true)
+          _buildActiveFilters(assetProvider),
+      ],
+    ),
+  );
+}
 
   // Active Filters
   Widget _buildActiveFilters(AssetProvider assetProvider) {

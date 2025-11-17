@@ -1,7 +1,7 @@
-//filename: lib/providers/asset_provider.dart
+// filename: lib/providers/asset_provider.dart
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-
 import '../models/asset.dart';
 import '../services/asset_service.dart';
 
@@ -28,11 +28,11 @@ class AssetProvider with ChangeNotifier {
     if (_currentFilters.searchQuery != null && _currentFilters.searchQuery!.isNotEmpty) {
       final query = _currentFilters.searchQuery!.toLowerCase();
       filtered = filtered.where((asset) =>
-        asset.internalId.toLowerCase().contains(query) ||
-        asset.manufacturer.toLowerCase().contains(query) ||
-        asset.model.toLowerCase().contains(query) ||
-        asset.serialNumber.toLowerCase().contains(query) ||
-        asset.assetType.toLowerCase().contains(query)
+      asset.internalId.toLowerCase().contains(query) ||
+          asset.manufacturer.toLowerCase().contains(query) ||
+          asset.model.toLowerCase().contains(query) ||
+          asset.serialNumber.toLowerCase().contains(query) ||
+          asset.assetType.toLowerCase().contains(query)
       ).toList();
     }
 
@@ -56,6 +56,14 @@ class AssetProvider with ChangeNotifier {
       filtered = filtered.where((asset) => asset.needsService).toList();
     }
 
+    if (_currentFilters.assignmentStatus != null) {
+      if (_currentFilters.assignmentStatus == 'assigned') {
+        filtered = filtered.where((asset) => asset.isAssigned).toList();
+      } else if (_currentFilters.assignmentStatus == 'unassigned') {
+        filtered = filtered.where((asset) => !asset.isAssigned).toList();
+      }
+    }
+
     return filtered;
   }
 
@@ -70,24 +78,32 @@ class AssetProvider with ChangeNotifier {
   Future<void> loadAssets(String token, {AssetFilters? filters}) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+
+    // Use scheduleMicrotask to avoid build conflicts
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
 
     try {
       if (filters != null) {
         _currentFilters = filters;
       }
-      
+
       _assets = await _assetService.getAssets(
         filters: _currentFilters,
         token: token,
       );
-      
+
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
       rethrow;
     }
   }
@@ -101,16 +117,22 @@ class AssetProvider with ChangeNotifier {
   Future<void> loadAssetById(int id, String token) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
 
     try {
       _selectedAsset = await _assetService.getAssetById(id, token);
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
       rethrow;
     }
   }
@@ -119,17 +141,23 @@ class AssetProvider with ChangeNotifier {
   Future<void> createAsset(Asset asset, String token) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
 
     try {
       final newAsset = await _assetService.createAsset(asset, token);
       _assets.insert(0, newAsset);
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
       rethrow;
     }
   }
@@ -138,7 +166,9 @@ class AssetProvider with ChangeNotifier {
   Future<void> updateAsset(Asset asset, String token) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
 
     try {
       final updatedAsset = await _assetService.updateAsset(asset, token);
@@ -148,11 +178,15 @@ class AssetProvider with ChangeNotifier {
       }
       _selectedAsset = updatedAsset;
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
       rethrow;
     }
   }
@@ -161,7 +195,9 @@ class AssetProvider with ChangeNotifier {
   Future<void> deleteAsset(int id, String token) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
 
     try {
       await _assetService.deleteAsset(id, token);
@@ -170,11 +206,15 @@ class AssetProvider with ChangeNotifier {
         _selectedAsset = null;
       }
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
       rethrow;
     }
   }
@@ -183,27 +223,33 @@ class AssetProvider with ChangeNotifier {
   Future<void> assignAsset(int assetId, int userId, String token) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
 
     try {
       await _assetService.assignAsset(assetId, userId, token);
-      
+
       // Update local state
       final index = _assets.indexWhere((asset) => asset.id == assetId);
       if (index != -1) {
         _assets[index] = _assets[index].copyWith(inUseBy: userId, status: 'IN_USE');
       }
-      
+
       if (_selectedAsset?.id == assetId) {
         _selectedAsset = _selectedAsset!.copyWith(inUseBy: userId, status: 'IN_USE');
       }
-      
+
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
       rethrow;
     }
   }
@@ -212,27 +258,33 @@ class AssetProvider with ChangeNotifier {
   Future<void> unassignAsset(int assetId, String token) async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
 
     try {
       await _assetService.unassignAsset(assetId, token);
-      
+
       // Update local state
       final index = _assets.indexWhere((asset) => asset.id == assetId);
       if (index != -1) {
         _assets[index] = _assets[index].copyWith(inUseBy: null, status: 'IN_STORAGE');
       }
-      
+
       if (_selectedAsset?.id == assetId) {
         _selectedAsset = _selectedAsset!.copyWith(inUseBy: null, status: 'IN_STORAGE');
       }
-      
+
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      notifyListeners();
+      scheduleMicrotask(() {
+        notifyListeners();
+      });
       rethrow;
     }
   }
@@ -240,25 +292,33 @@ class AssetProvider with ChangeNotifier {
   // Clear error
   void clearError() {
     _error = null;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
   }
 
   // Clear selected asset
   void clearSelectedAsset() {
     _selectedAsset = null;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
   }
 
   // Update filters
   void updateFilters(AssetFilters filters) {
     _currentFilters = filters;
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
   }
 
   // Clear filters
   void clearFilters() {
     _currentFilters = AssetFilters();
-    notifyListeners();
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
   }
 }
 

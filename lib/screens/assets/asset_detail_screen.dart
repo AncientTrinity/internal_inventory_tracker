@@ -2,9 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/asset.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/asset_provider.dart';
-import '../../widgets/app_drawer.dart';
+import '../../providers/asset_provider.dart' show AssetProvider;
+import '../../widgets/common/app_drawer.dart';
 import 'asset_form_screen.dart';
 
 class AssetDetailScreen extends StatefulWidget {
@@ -67,9 +68,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => AssetFormScreen(asset: asset),
-                  ),
+                   MaterialPageRoute(builder: (context) => const AssetFormScreen()),
                 );
               },
             ),

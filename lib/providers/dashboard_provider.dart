@@ -1,4 +1,6 @@
 //filename: lib/providers/dashboard_provider.dart
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/asset.dart';
@@ -43,30 +45,41 @@ class DashboardProvider with ChangeNotifier {
   int get criticalTickets => _ticketStats?['critical'] ?? 0;
 
   // Load all dashboard data
-  Future<void> loadDashboardData(String token) async {
-    _isLoading = true;
-    _error = null;
+ // Alternative simpler version - just replace the loadDashboardData method:
+Future<void> loadDashboardData(String token) async {
+  _isLoading = true;
+  _error = null;
+
+  // Delay the initial notification slightly
+  Future.delayed(Duration.zero, () {
     notifyListeners();
+  });
 
-    try {
-      // Load data in parallel for better performance
-      await Future.wait([
-        _loadAssetStats(token),
-        _loadTicketStats(token),
-        _loadRecentAssets(token),
-        _loadRecentTickets(token),
-        _loadAssetsNeedingService(token),
-      ]);
+  try {
+    await Future.wait([
+      _loadAssetStats(token),
+      _loadTicketStats(token),
+      _loadRecentAssets(token),
+      _loadRecentTickets(token),
+      _loadAssetsNeedingService(token),
+    ]);
 
-      _isLoading = false;
+    _isLoading = false;
+    // Use a microtask to ensure we're not in build phase
+    scheduleMicrotask(() {
       notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
+    });
+    
+  } catch (e) {
+    _error = e.toString();
+    _isLoading = false;
+    // Use a microtask to ensure we're not in build phase
+    scheduleMicrotask(() {
       notifyListeners();
-      rethrow;
-    }
+    });
+    rethrow;
   }
+}
 
   // Refresh dashboard data
   Future<void> refreshData(String token) async {

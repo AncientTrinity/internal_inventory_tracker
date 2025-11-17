@@ -16,7 +16,9 @@ class Asset {
   final DateTime? nextServiceDate;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
+
+
+
   // Joined fields for display
   final String? assignedToName;
   final String? assignedToEmail;
@@ -40,6 +42,9 @@ class Asset {
     this.assignedToEmail,
   });
 
+
+
+
   factory Asset.fromJson(Map<String, dynamic> json) {
     return Asset(
       id: json['id'],
@@ -51,14 +56,14 @@ class Asset {
       serialNumber: json['serial_number'] ?? '',
       status: json['status'],
       inUseBy: json['in_use_by'],
-      datePurchased: json['date_purchased'] != null 
-          ? DateTime.parse(json['date_purchased']) 
+      datePurchased: json['date_purchased'] != null
+          ? DateTime.parse(json['date_purchased'])
           : null,
-      lastServiceDate: json['last_service_date'] != null 
-          ? DateTime.parse(json['last_service_date']) 
+      lastServiceDate: json['last_service_date'] != null
+          ? DateTime.parse(json['last_service_date'])
           : null,
-      nextServiceDate: json['next_service_date'] != null 
-          ? DateTime.parse(json['next_service_date']) 
+      nextServiceDate: json['next_service_date'] != null
+          ? DateTime.parse(json['next_service_date'])
           : null,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
@@ -85,7 +90,7 @@ class Asset {
 
   // Helper methods
   bool get isAssigned => inUseBy != null;
-  bool get needsService => nextServiceDate != null && 
+  bool get needsService => nextServiceDate != null &&
       nextServiceDate!.isBefore(DateTime.now());
   bool get isInUse => status == 'IN_USE';
   bool get isInStorage => status == 'IN_STORAGE';
@@ -126,6 +131,8 @@ class Asset {
 }
 
 // Asset filters for search
+// Add this to your existing lib/models/asset.dart file
+// Update the AssetFilters class:
 class AssetFilters {
   final String? searchQuery;
   final String? assetType;
@@ -133,6 +140,7 @@ class AssetFilters {
   final String? manufacturer;
   final int? inUseBy;
   final bool? needsService;
+  final String? assignmentStatus; // 'assigned' or 'unassigned'
 
   AssetFilters({
     this.searchQuery,
@@ -141,11 +149,12 @@ class AssetFilters {
     this.manufacturer,
     this.inUseBy,
     this.needsService,
+    this.assignmentStatus,
   });
 
   Map<String, String> toQueryParams() {
     final params = <String, String>{};
-    
+
     if (searchQuery != null && searchQuery!.isNotEmpty) {
       params['q'] = searchQuery!;
     }
@@ -164,7 +173,31 @@ class AssetFilters {
     if (needsService == true) {
       params['needs_service'] = 'true';
     }
-    
+    if (assignmentStatus != null) {
+      params['assignment_status'] = assignmentStatus!;
+    }
+
     return params;
+  }
+
+  // Add this copyWith method:
+  AssetFilters copyWith({
+    String? searchQuery,
+    String? assetType,
+    String? status,
+    String? manufacturer,
+    int? inUseBy,
+    bool? needsService,
+    String? assignmentStatus,
+  }) {
+    return AssetFilters(
+      searchQuery: searchQuery ?? this.searchQuery,
+      assetType: assetType ?? this.assetType,
+      status: status ?? this.status,
+      manufacturer: manufacturer ?? this.manufacturer,
+      inUseBy: inUseBy ?? this.inUseBy,
+      needsService: needsService ?? this.needsService,
+      assignmentStatus: assignmentStatus ?? this.assignmentStatus,
+    );
   }
 }

@@ -49,23 +49,34 @@ class DashboardService {
 
   // Get recent assets
   Future<List<Asset>> getRecentAssets(String token) async {
-    final url = Uri.parse('$baseUrl/assets?limit=5');
+  final url = Uri.parse('$baseUrl/assets?limit=5');
 
-    final response = await http.get(
-      url,
-      headers: {
-        ...ApiConfig.headers,
-        'Authorization': 'Bearer $token',
-      },
-    );
+  final response = await http.get(
+    url,
+    headers: {
+      ...ApiConfig.headers,
+      'Authorization': 'Bearer $token',
+    },
+  );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonList = json.decode(response.body);
-      return jsonList.map((json) => Asset.fromJson(json)).toList();
+  if (response.statusCode == 200) {
+    final dynamic responseBody = json.decode(response.body);
+    
+    List<dynamic> assetsList;
+    if (responseBody is List) {
+      assetsList = responseBody; // Raw array
+    } else if (responseBody is Map) {
+      assetsList = responseBody['data'] ?? responseBody['assets'] ?? [];
     } else {
-      throw Exception('Failed to load recent assets: ${response.statusCode}');
+      assetsList = [];
     }
+    
+    return assetsList.map((json) => Asset.fromJson(json)).toList();
+  } else {
+    throw Exception('Failed to load recent assets: ${response.statusCode}');
   }
+}
+
 
   // Get recent tickets
   Future<List<Ticket>> getRecentTickets(String token) async {
@@ -89,22 +100,33 @@ class DashboardService {
 
   // Get assets needing service
   Future<List<Asset>> getAssetsNeedingService(String token) async {
-    final url = Uri.parse('$baseUrl/assets/search?needs_service=true');
+  final url = Uri.parse('$baseUrl/assets/search?needs_service=true');
 
-    final response = await http.get(
-      url,
-      headers: {
-        ...ApiConfig.headers,
-        'Authorization': 'Bearer $token',
-      },
-    );
+  final response = await http.get(
+    url,
+    headers: {
+      ...ApiConfig.headers,
+      'Authorization': 'Bearer $token',
+    },
+  );
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> jsonResponse = json.decode(response.body);
-      final List<dynamic> assetsJson = jsonResponse['assets'] ?? [];
-      return assetsJson.map((json) => Asset.fromJson(json)).toList();
+  if (response.statusCode == 200) {
+    final dynamic responseBody = json.decode(response.body);
+    
+    List<dynamic> assetsList;
+    if (responseBody is List) {
+      assetsList = responseBody; // Raw array
+    } else if (responseBody is Map) {
+      assetsList = responseBody['assets'] ?? responseBody['data'] ?? [];
     } else {
-      throw Exception('Failed to load assets needing service: ${response.statusCode}');
+      assetsList = [];
     }
+    
+    return assetsList.map((json) => Asset.fromJson(json)).toList();
+  } else {
+    throw Exception('Failed to load assets needing service: ${response.statusCode}');
   }
+}
+
+
 }
