@@ -75,69 +75,208 @@ class AppDrawer extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Navigation Items
+          // Navigation Items - Role Based
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                // Dashboard
+                // Always show these items
                 _buildDrawerItem(
                   context,
                   icon: Icons.dashboard,
                   title: 'Dashboard',
                   onTap: () {
                     Navigator.pop(context);
-                    // We'll handle navigation later
+                    Navigator.pushReplacementNamed(context, '/dashboard');
                   },
                 ),
 
-                // Assets
                 _buildDrawerItem(
                   context,
                   icon: Icons.computer,
                   title: 'Assets',
                   onTap: () {
                     Navigator.pop(context);
-                    // We'll handle navigation later
+                    Navigator.pushNamed(context, '/assets');
                   },
                 ),
 
-                // Tickets
                 _buildDrawerItem(
                   context,
                   icon: Icons.confirmation_number,
                   title: 'Tickets',
                   onTap: () {
                     Navigator.pop(context);
-                    // We'll handle navigation later
+                    Navigator.pushNamed(context, '/tickets');
                   },
                 ),
 
-                // Users (Admin & IT only)
-                if (user?.isAdmin == true || user?.isITStaff == true)
+                // ADMIN ONLY SECTION
+                if (user?.isAdmin == true) ...[
+                  const Divider(),
+                  _buildSectionHeader('Administration'),
                   _buildDrawerItem(
                     context,
                     icon: Icons.people,
-                    title: 'Users',
+                    title: 'User Management',
                     onTap: () {
                       Navigator.pop(context);
-                      // We'll handle navigation later
+                      Navigator.pushNamed(context, '/users');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.admin_panel_settings,
+                    title: 'Role Management',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/roles');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.analytics,
+                    title: 'System Analytics',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/analytics');
+                    },
+                  ),
+                ],
+
+                // IT STAFF SECTION
+                if (user?.isITStaff == true) ...[
+                  const Divider(),
+                  _buildSectionHeader('IT Management'),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.manage_accounts,
+                    title: 'Manage Users',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/users');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.assignment_turned_in,
+                    title: 'Assign Tickets',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/ticket-assignment');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.build,
+                    title: 'Service Management',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/service-management');
+                    },
+                  ),
+                ],
+
+                // STAFF/TEAM LEAD SECTION
+                if (user?.isStaff == true) ...[
+                  const Divider(),
+                  _buildSectionHeader('Team Management'),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.group,
+                    title: 'My Team',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/my-team');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.assignment_ind,
+                    title: 'Ticket Verification',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/ticket-verification');
+                    },
+                  ),
+                ],
+
+                // AGENT SECTION
+                if (user?.isAgent == true) ...[
+                  const Divider(),
+                  _buildSectionHeader('My Work'),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.assignment,
+                    title: 'My Tickets',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/my-tickets');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.computer,
+                    title: 'My Assets',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/my-assets');
+                    },
+                  ),
+                ],
+
+                // VIEWER SECTION (Limited Access)
+                if (user?.isViewer == true) ...[
+                  const Divider(),
+                  _buildSectionHeader('View Only'),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.visibility,
+                    title: 'View Assets',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/view-assets');
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.visibility,
+                    title: 'View Tickets',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/view-tickets');
+                    },
+                  ),
+                ],
+
+                // COMMON FEATURES FOR ALL ROLES
+                const Divider(),
+                _buildSectionHeader('General'),
+
+                // Notifications (all roles except maybe viewers)
+                if (user?.isViewer == false)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.notifications,
+                    title: 'Notifications',
+                    badgeCount: 0, // We'll implement this later
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/notifications');
                     },
                   ),
 
-                // Notifications
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.notifications,
-                  title: 'Notifications',
-                  badgeCount: 0, // We'll implement this later
-                  onTap: () {
-                    Navigator.pop(context);
-                    // We'll handle navigation later
-                  },
-                ),
-
-                const Divider(),
+                // Reports (Admin, IT, Staff)
+                if (user?.isAdmin == true || user?.isITStaff == true || user?.isStaff == true)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.assessment,
+                    title: 'Reports',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/reports');
+                    },
+                  ),
 
                 // Settings
                 _buildDrawerItem(
@@ -146,18 +285,18 @@ class AppDrawer extends StatelessWidget {
                   title: 'Settings',
                   onTap: () {
                     Navigator.pop(context);
-                    // We'll handle navigation later
+                    Navigator.pushNamed(context, '/settings');
                   },
                 ),
 
-                // Help
+                // Help & Support
                 _buildDrawerItem(
                   context,
                   icon: Icons.help,
                   title: 'Help & Support',
                   onTap: () {
                     Navigator.pop(context);
-                    // We'll handle navigation later
+                    Navigator.pushNamed(context, '/help');
                   },
                 ),
               ],
@@ -183,6 +322,21 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Helper method to build section headers
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.grey,
+          fontSize: 12,
+        ),
       ),
     );
   }

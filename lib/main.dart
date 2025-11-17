@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
-import 'screens/splash_screen.dart';
+import 'providers/dashboard_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
+import 'screens/placeholder/placeholder_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const InternalInventoryTrackerApp());
@@ -18,6 +20,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       child: MaterialApp(
         title: 'Internal Inventory Tracker',
@@ -32,8 +35,93 @@ class InternalInventoryTrackerApp extends StatelessWidget {
         ),
         home: const SplashScreen(),
         routes: {
+          // Authentication
           '/login': (context) => const LoginScreen(),
+
+          // Main Dashboard
           '/dashboard': (context) => const DashboardScreen(),
+
+          // Common Features (All Roles)
+          '/assets': (context) => const PlaceholderScreen(
+            title: 'Assets Management',
+            description: 'Manage and track all company assets including computers, monitors, and peripherals.',
+          ),
+          '/tickets': (context) => const PlaceholderScreen(
+            title: 'Tickets Management',
+            description: 'Create, track, and manage support tickets and service requests.',
+          ),
+          '/notifications': (context) => const PlaceholderScreen(
+            title: 'Notifications',
+            description: 'View and manage your system notifications and alerts.',
+          ),
+          '/settings': (context) => const PlaceholderScreen(
+            title: 'Settings',
+            description: 'Configure your application preferences and settings.',
+          ),
+          '/help': (context) => const PlaceholderScreen(
+            title: 'Help & Support',
+            description: 'Get help and support for using the Internal Inventory Tracker.',
+          ),
+
+          // Admin Only Routes
+          '/users': (context) => const PlaceholderScreen(
+            title: 'User Management',
+            description: 'Manage system users, roles, and permissions (Admin Only).',
+          ),
+          '/roles': (context) => const PlaceholderScreen(
+            title: 'Role Management',
+            description: 'Configure system roles and permissions (Admin Only).',
+          ),
+          '/analytics': (context) => const PlaceholderScreen(
+            title: 'System Analytics',
+            description: 'View system-wide analytics and performance metrics (Admin Only).',
+          ),
+
+          // IT Staff Routes
+          '/ticket-assignment': (context) => const PlaceholderScreen(
+            title: 'Ticket Assignment',
+            description: 'Assign and manage ticket assignments for IT staff.',
+          ),
+          '/service-management': (context) => const PlaceholderScreen(
+            title: 'Service Management',
+            description: 'Manage asset service schedules and maintenance.',
+          ),
+
+          // Staff/Team Lead Routes
+          '/my-team': (context) => const PlaceholderScreen(
+            title: 'My Team',
+            description: 'View and manage your team members and their assignments.',
+          ),
+          '/ticket-verification': (context) => const PlaceholderScreen(
+            title: 'Ticket Verification',
+            description: 'Verify and close completed support tickets.',
+          ),
+
+          // Agent Routes
+          '/my-tickets': (context) => const PlaceholderScreen(
+            title: 'My Tickets',
+            description: 'View and manage tickets assigned to you.',
+          ),
+          '/my-assets': (context) => const PlaceholderScreen(
+            title: 'My Assets',
+            description: 'View assets assigned to you.',
+          ),
+
+          // Viewer Routes
+          '/view-assets': (context) => const PlaceholderScreen(
+            title: 'View Assets',
+            description: 'View company assets (Read-only access).',
+          ),
+          '/view-tickets': (context) => const PlaceholderScreen(
+            title: 'View Tickets',
+            description: 'View support tickets (Read-only access).',
+          ),
+
+          // Common Reports
+          '/reports': (context) => const PlaceholderScreen(
+            title: 'Reports',
+            description: 'Generate and view system reports.',
+          ),
         },
         debugShowCheckedModeBanner: false,
       ),
