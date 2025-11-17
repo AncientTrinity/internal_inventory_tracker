@@ -1,3 +1,4 @@
+//filename: lib/widgets/navbar/navbar.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

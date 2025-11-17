@@ -1,3 +1,4 @@
+//filename: lib/models/auth.dart
 class LoginRequest {
   final String email;
   final String password;

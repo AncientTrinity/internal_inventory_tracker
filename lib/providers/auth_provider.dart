@@ -1,3 +1,4 @@
+//filename: lib/providers/auth_provider.dart
 import 'package:flutter/foundation.dart';
 
 import '../models/auth.dart';

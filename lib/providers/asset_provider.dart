@@ -1,3 +1,5 @@
+//filename: lib/providers/asset_provider.dart
+
 import 'package:flutter/foundation.dart';
 
 import '../models/asset.dart';

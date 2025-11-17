@@ -1,3 +1,4 @@
+//filename: lib/models/asset.dart
 import 'package:flutter/material.dart';
 
 class Asset {

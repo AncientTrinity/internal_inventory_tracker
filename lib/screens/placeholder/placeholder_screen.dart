@@ -1,4 +1,4 @@
-// This is a placeholder screen for future implementation to test RBAC features and navigation.
+// filename: lib/screens/placeholder/placeholder_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
