@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
-import '../../widgets/navbar/navbar.dart';
+import '../../widgets/common/app_drawer.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -35,15 +35,15 @@ class DashboardScreen extends StatelessWidget {
                     Text(
                       'Welcome back, ${authProvider.currentUser?.fullName ?? 'User'}!',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Here\'s what\'s happening with your inventory today.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                            color: Colors.grey[600],
+                          ),
                     ),
                   ],
                 ),
@@ -56,8 +56,8 @@ class DashboardScreen extends StatelessWidget {
             Text(
               'Quick Stats',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 12),
 
@@ -132,8 +132,8 @@ class DashboardScreen extends StatelessWidget {
                         Text(
                           'Recent Activity',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                       ],
                     ),
@@ -183,8 +183,8 @@ class DashboardScreen extends StatelessWidget {
                           Text(
                             'Quick Actions',
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
                         ],
                       ),
@@ -196,14 +196,14 @@ class DashboardScreen extends StatelessWidget {
                           _buildActionChip(
                             'Add Asset',
                             Icons.add,
-                                () {
+                            () {
                               // Add asset action
                             },
                           ),
                           _buildActionChip(
                             'Create Ticket',
                             Icons.add_task,
-                                () {
+                            () {
                               // Create ticket action
                             },
                           ),
@@ -211,7 +211,7 @@ class DashboardScreen extends StatelessWidget {
                             _buildActionChip(
                               'Add User',
                               Icons.person_add,
-                                  () {
+                              () {
                                 // Add user action
                               },
                             ),
@@ -229,13 +229,13 @@ class DashboardScreen extends StatelessWidget {
 
   // Helper method to build stat cards
   Widget _buildStatCard(
-      BuildContext context, {
-        required String title,
-        required String value,
-        required IconData icon,
-        required Color color,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return Card(
       elevation: 2,
       child: InkWell(
@@ -255,15 +255,15 @@ class DashboardScreen extends StatelessWidget {
               Text(
                 value,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
               ),
               Text(
                 title,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
+                      color: Colors.grey[600],
+                    ),
                 textAlign: TextAlign.center,
               ),
             ],
