@@ -1,4 +1,4 @@
-//filename: lib/screens/assets/asset_list_screen.dart
+// filename: lib/screens/assets/asset_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,8 +7,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import '../../widgets/common/app_drawer.dart';
 import 'asset_detail_screen.dart';
-import 'asset_filter_sheet.dart' ;
 import 'asset_form_screen.dart';
+import 'asset_filter_sheet.dart';
 
 class AssetListScreen extends StatefulWidget {
   const AssetListScreen({super.key});
@@ -20,6 +20,8 @@ class AssetListScreen extends StatefulWidget {
 class _AssetListScreenState extends State<AssetListScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isGridview = false;
+  bool _isSelectionMode = false;
+  Set<int> _selectedAssetIds = <int>{};
 
   @override
   void initState() {
@@ -57,6 +59,7 @@ class _AssetListScreenState extends State<AssetListScreen> {
         manufacturer: currentFilters.manufacturer,
         inUseBy: currentFilters.inUseBy,
         needsService: currentFilters.needsService,
+        assignmentStatus: currentFilters.assignmentStatus,
       ),
     );
   }
@@ -69,7 +72,7 @@ class _AssetListScreenState extends State<AssetListScreen> {
 
   void _showFilterDialog() {
     final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -85,69 +88,236 @@ class _AssetListScreenState extends State<AssetListScreen> {
     );
   }
 
+  // Selection Mode Methods
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedAssetIds.clear();
+      }
+    });
+  }
+
+  void _toggleAssetSelection(int assetId) {
+    setState(() {
+      if (_selectedAssetIds.contains(assetId)) {
+        _selectedAssetIds.remove(assetId);
+      } else {
+        _selectedAssetIds.add(assetId);
+      }
+      
+      // Exit selection mode if no assets selected
+      if (_selectedAssetIds.isEmpty) {
+        _isSelectionMode = false;
+      }
+    });
+  }
+
+  void _selectAllAssets() {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    setState(() {
+      _selectedAssetIds = assetProvider.filteredAssets.map((a) => a.id).toSet();
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedAssetIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  void _showBulkDeleteDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Assets'),
+        content: Text(
+          'Are you sure you want to delete ${_selectedAssetIds.length} assets? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteSelectedAssets();
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBulkAssignDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Assign Assets'),
+        content: const Text('User selection for bulk assignment will be implemented in the next phase.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteSelectedAssets() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    
+    try {
+      for (final assetId in _selectedAssetIds) {
+        await assetProvider.deleteAsset(assetId, authProvider.authData!.token);
+      }
+      
+      setState(() {
+        _selectedAssetIds.clear();
+        _isSelectionMode = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${_selectedAssetIds.length} assets deleted successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting assets: $e')),
+      );
+    }
+  }
+
+  // App Bar Builder
+  PreferredSizeWidget _buildAppBar(AssetProvider assetProvider, AuthProvider authProvider) {
+    final user = authProvider.currentUser;
+
+    if (_isSelectionMode) {
+      return AppBar(
+        title: Text('${_selectedAssetIds.length} selected'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: _clearSelection,
+        ),
+        actions: [
+          if (_selectedAssetIds.length != assetProvider.filteredAssets.length)
+            IconButton(
+              icon: const Icon(Icons.select_all),
+              onPressed: _selectAllAssets,
+              tooltip: 'Select All',
+            ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _selectedAssetIds.isNotEmpty ? _showBulkDeleteDialog : null,
+            tooltip: 'Delete Selected',
+          ),
+          IconButton(
+            icon: const Icon(Icons.assignment_outlined),
+            onPressed: _selectedAssetIds.isNotEmpty ? _showBulkAssignDialog : null,
+            tooltip: 'Assign Selected',
+          ),
+        ],
+      );
+    }
+
+    return AppBar(
+      title: const Text('Assets'),
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      actions: [
+        IconButton(
+          icon: Icon(_isGridview ? Icons.list : Icons.grid_view),
+          onPressed: () {
+            setState(() {
+              _isGridview = !_isGridview;
+            });
+          },
+          tooltip: _isGridview ? 'List View' : 'Grid View',
+        ),
+        if (user?.isAdmin == true || user?.isITStaff == true)
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              Navigator.pushNamed(context, '/assets/add');
+            },
+            tooltip: 'Add New Asset',
+          ),
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: assetProvider.isLoading ? null : _refreshAssets,
+          tooltip: 'Refresh',
+        ),
+        if (assetProvider.filteredAssets.isNotEmpty)
+          IconButton(
+            icon: const Icon(Icons.check_box_outlined),
+            onPressed: _toggleSelectionMode,
+            tooltip: 'Select Multiple',
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final assetProvider = Provider.of<AssetProvider>(context);
-    final user = authProvider.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Assets'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        actions: [
-          // View Toggle
-          IconButton(
-            icon: Icon(_isGridview ? Icons.list : Icons.grid_view),
-            onPressed: () {
-              setState(() {
-                _isGridview = !_isGridview;
-              });
-            },
-            tooltip: _isGridview ? 'List View' : 'Grid View',
-          ),
-          // Add Asset Button (Admin & IT only)
-          if (user?.isAdmin == true || user?.isITStaff == true)
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AssetFormScreen()),
-              );
-            },
-            tooltip: 'Add New Asset',
-          ),
-          // Refresh
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: assetProvider.isLoading ? null : _refreshAssets,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(assetProvider, authProvider),
       drawer: const AppDrawer(),
       body: Column(
         children: [
           // Search and Filter Bar
           _buildSearchFilterBar(assetProvider),
           
+          // Selection Info Bar
+          if (_isSelectionMode && _selectedAssetIds.isNotEmpty)
+            _buildSelectionBar(),
+          
           // Statistics Bar
           _buildStatisticsBar(assetProvider),
           
           // Assets List/Grid
           Expanded(
-            child: assetProvider.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _refreshAssets,
-                    child: assetProvider.filteredAssets.isEmpty
-                        ? _buildEmptyState()
-                        : _isGridview
-                            ? _buildGridView(assetProvider)
-                            : _buildListView(assetProvider),
-                  ),
+            child: _buildContent(assetProvider),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Selection Bar
+  Widget _buildSelectionBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).primaryColor.withOpacity(0.1),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: Theme.of(context).primaryColor, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            '${_selectedAssetIds.length} assets selected',
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: _clearSelection,
+            child: Text(
+              'Clear',
+              style: TextStyle(color: Theme.of(context).primaryColor),
+            ),
           ),
         ],
       ),
@@ -155,60 +325,61 @@ class _AssetListScreenState extends State<AssetListScreen> {
   }
 
   // Search and Filter Bar
-Widget _buildSearchFilterBar(AssetProvider assetProvider) {
-  return Padding(
-    padding: const EdgeInsets.all(16.0),
-    child: Column(
-      children: [
-        // Single Search Bar with Filter Button
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search assets...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_searchController.text.isNotEmpty)
+  Widget _buildSearchFilterBar(AssetProvider assetProvider) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          // Single Search Bar with Filter Button
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search assets...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_searchController.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _applySearchFilter('');
+                            },
+                          ),
                         IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            _applySearchFilter('');
-                          },
+                          icon: const Icon(Icons.filter_list),
+                          onPressed: _showFilterDialog,
+                          tooltip: 'Filters',
                         ),
-                      IconButton(
-                        icon: const Icon(Icons.filter_list),
-                        onPressed: _showFilterDialog,
-                        tooltip: 'Filters',
-                      ),
-                    ],
+                      ],
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
+                  onChanged: _applySearchFilter,
                 ),
-                onChanged: _applySearchFilter,
               ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 12),
-        
-        // Active Filters Display (only show if filters are active)
-        if (assetProvider.currentFilters.assetType != null ||
-            assetProvider.currentFilters.status != null ||
-            assetProvider.currentFilters.manufacturer != null ||
-            assetProvider.currentFilters.needsService == true)
-          _buildActiveFilters(assetProvider),
-      ],
-    ),
-  );
-}
+            ],
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Active Filters Display
+          if (assetProvider.currentFilters.assetType != null ||
+              assetProvider.currentFilters.status != null ||
+              assetProvider.currentFilters.manufacturer != null ||
+              assetProvider.currentFilters.needsService == true ||
+              assetProvider.currentFilters.assignmentStatus != null)
+            _buildActiveFilters(assetProvider),
+        ],
+      ),
+    );
+  }
 
   // Active Filters
   Widget _buildActiveFilters(AssetProvider assetProvider) {
@@ -219,6 +390,9 @@ Widget _buildSearchFilterBar(AssetProvider assetProvider) {
     if (filters.status != null) activeFilters.add('Status: ${filters.status}');
     if (filters.manufacturer != null) activeFilters.add('Manufacturer: ${filters.manufacturer}');
     if (filters.needsService == true) activeFilters.add('Needs Service');
+    if (filters.assignmentStatus != null) {
+      activeFilters.add('Assignment: ${filters.assignmentStatus == 'assigned' ? 'Assigned' : 'Unassigned'}');
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,6 +453,60 @@ Widget _buildSearchFilterBar(AssetProvider assetProvider) {
     );
   }
 
+  // Main Content
+  Widget _buildContent(AssetProvider assetProvider) {
+    if (assetProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    if (assetProvider.error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Error: ${assetProvider.error}'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadAssets,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    if (assetProvider.assets.isEmpty) {
+      return _buildEmptyState();
+    }
+    
+    if (assetProvider.filteredAssets.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            const Text('No assets match your filters'),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: _clearFilters,
+              child: const Text('Clear Filters'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return RefreshIndicator(
+      onRefresh: _refreshAssets,
+      child: _isGridview
+          ? _buildGridView(assetProvider)
+          : _buildListView(assetProvider),
+    );
+  }
+
   // Empty State
   Widget _buildEmptyState() {
     return Center(
@@ -318,7 +546,7 @@ Widget _buildSearchFilterBar(AssetProvider assetProvider) {
       itemCount: assetProvider.filteredAssets.length,
       itemBuilder: (context, index) {
         final asset = assetProvider.filteredAssets[index];
-        return _buildAssetListItem(asset);
+        return _buildAssetListItem(asset, assetProvider);
       },
     );
   }
@@ -336,32 +564,43 @@ Widget _buildSearchFilterBar(AssetProvider assetProvider) {
       itemCount: assetProvider.filteredAssets.length,
       itemBuilder: (context, index) {
         final asset = assetProvider.filteredAssets[index];
-        return _buildAssetGridItem(asset);
+        return _buildAssetGridItem(asset, assetProvider);
       },
     );
   }
 
   // Asset List Item
-  Widget _buildAssetListItem(Asset asset) {
+  Widget _buildAssetListItem(Asset asset, AssetProvider assetProvider) {
+    final isSelected = _selectedAssetIds.contains(asset.id);
+    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
       child: ListTile(
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: asset.statusColor.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            _getAssetTypeIcon(asset.assetType),
-            color: asset.statusColor,
-            size: 30,
-          ),
-        ),
+        leading: _isSelectionMode 
+            ? Checkbox(
+                value: isSelected,
+                onChanged: (value) => _toggleAssetSelection(asset.id),
+              )
+            : Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: asset.statusColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getAssetTypeIcon(asset.assetType),
+                  color: asset.statusColor,
+                  size: 30,
+                ),
+              ),
         title: Text(
           asset.internalId,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Theme.of(context).primaryColor : null,
+          ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,30 +652,53 @@ Widget _buildSearchFilterBar(AssetProvider assetProvider) {
             ),
           ],
         ),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: _isSelectionMode ? null : const Icon(Icons.chevron_right),
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AssetDetailScreen(assetId: asset.id),
-            ),
-          );
+          if (_isSelectionMode) {
+            _toggleAssetSelection(asset.id);
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AssetDetailScreen(assetId: asset.id),
+              ),
+            );
+          }
+        },
+        onLongPress: () {
+          if (!_isSelectionMode) {
+            _toggleSelectionMode();
+            _toggleAssetSelection(asset.id);
+          }
         },
       ),
     );
   }
 
   // Asset Grid Item
-  Widget _buildAssetGridItem(Asset asset) {
+  Widget _buildAssetGridItem(Asset asset, AssetProvider assetProvider) {
+    final isSelected = _selectedAssetIds.contains(asset.id);
+    
     return Card(
+      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
       child: InkWell(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AssetDetailScreen(assetId: asset.id),
-            ),
-          );
+          if (_isSelectionMode) {
+            _toggleAssetSelection(asset.id);
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AssetDetailScreen(assetId: asset.id),
+              ),
+            );
+          }
+        },
+        onLongPress: () {
+          if (!_isSelectionMode) {
+            _toggleSelectionMode();
+            _toggleAssetSelection(asset.id);
+          }
         },
         borderRadius: BorderRadius.circular(8),
         child: Padding(
@@ -444,23 +706,30 @@ Widget _buildSearchFilterBar(AssetProvider assetProvider) {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon and Status
+              // Selection Checkbox or Icon
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: asset.statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                  if (_isSelectionMode)
+                    Checkbox(
+                      value: isSelected,
+                      onChanged: (value) => _toggleAssetSelection(asset.id),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    )
+                  else
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: asset.statusColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _getAssetTypeIcon(asset.assetType),
+                        color: asset.statusColor,
+                        size: 24,
+                      ),
                     ),
-                    child: Icon(
-                      _getAssetTypeIcon(asset.assetType),
-                      color: asset.statusColor,
-                      size: 24,
-                    ),
-                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
@@ -482,9 +751,10 @@ Widget _buildSearchFilterBar(AssetProvider assetProvider) {
               // Asset ID
               Text(
                 asset.internalId,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
+                  color: isSelected ? Theme.of(context).primaryColor : null,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -520,7 +790,8 @@ Widget _buildSearchFilterBar(AssetProvider assetProvider) {
                   if (asset.needsService)
                     const Icon(Icons.warning, size: 12, color: Colors.orange),
                   const Spacer(),
-                  const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                  if (!_isSelectionMode)
+                    const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
                 ],
               ),
             ],
