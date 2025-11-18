@@ -1,13 +1,14 @@
 // filename: lib/screens/assets/asset_list_screen.dart
 import 'package:flutter/material.dart';
+import 'package:internal_inventory_tracker/screens/assets/user_selection_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/asset.dart';
+import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import '../../widgets/common/app_drawer.dart';
 import 'asset_detail_screen.dart';
-import 'asset_form_screen.dart';
 import 'asset_filter_sheet.dart';
 
 class AssetListScreen extends StatefulWidget {
@@ -50,7 +51,7 @@ class _AssetListScreenState extends State<AssetListScreen> {
   void _applySearchFilter(String query) {
     final assetProvider = Provider.of<AssetProvider>(context, listen: false);
     final currentFilters = assetProvider.currentFilters;
-    
+
     assetProvider.updateFilters(
       AssetFilters(
         searchQuery: query.isEmpty ? null : query,
@@ -72,7 +73,7 @@ class _AssetListScreenState extends State<AssetListScreen> {
 
   void _showFilterDialog() {
     final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -105,7 +106,7 @@ class _AssetListScreenState extends State<AssetListScreen> {
       } else {
         _selectedAssetIds.add(assetId);
       }
-      
+
       // Exit selection mode if no assets selected
       if (_selectedAssetIds.isEmpty) {
         _isSelectionMode = false;
@@ -156,37 +157,168 @@ class _AssetListScreenState extends State<AssetListScreen> {
   }
 
   void _showBulkAssignDialog() {
+    if (_selectedAssetIds.isEmpty) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Assign Assets'),
-        content: const Text('User selection for bulk assignment will be implemented in the next phase.'),
+        content: Text(
+          'Assign ${_selectedAssetIds.length} selected assets to a user?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showUserSelectionForBulkAssignment();
+            },
+            child: const Text('Select User'),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _deleteSelectedAssets() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-    
+  void _showUserSelectionForBulkAssignment() async {
+    final selectedUser = await Navigator.of(context).push<User>(
+      MaterialPageRoute(
+        builder: (context) => UserSelectionScreen(
+          onUserSelected: (user) => _bulkAssignAssetsToUser(user),
+          currentAssignedUserId: null, // Not relevant for bulk assignment
+        ),
+      ),
+    );
+  }
+
+  Future<void> _bulkAssignAssetsToUser(User user) async {
     try {
-      for (final assetId in _selectedAssetIds) {
-        await assetProvider.deleteAsset(assetId, authProvider.authData!.token);
-      }
-      
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+
+      print(
+          '🎯 Bulk Assigning ${_selectedAssetIds.length} assets to ${user.fullName}');
+
+      await assetProvider.bulkAssignAssets(_selectedAssetIds.toList(), user.id);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '${_selectedAssetIds.length} assets assigned to ${user.fullName}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Clear selection and exit selection mode
       setState(() {
         _selectedAssetIds.clear();
         _isSelectionMode = false;
       });
-      
+
+      // Refresh the assets list
+      if (authProvider.authData != null) {
+        await assetProvider.refreshAssets(authProvider.authData!.token);
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${_selectedAssetIds.length} assets deleted successfully')),
+        SnackBar(
+          content: Text('Failed to assign assets: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+// Add this method to asset_list_screen.dart if you want bulk unassign
+
+  void _showBulkUnassignDialog() {
+    if (_selectedAssetIds.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unassign Assets'),
+        content: Text(
+          'Unassign ${_selectedAssetIds.length} selected assets?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _bulkUnassignAssets();
+            },
+            child: const Text(
+              'Unassign',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _bulkUnassignAssets() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+
+      // Since we don't have a bulk unassign endpoint, unassign individually
+      for (final assetId in _selectedAssetIds) {
+        await assetProvider.unassignAsset(assetId);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${_selectedAssetIds.length} assets unassigned'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Clear selection and exit selection mode
+      setState(() {
+        _selectedAssetIds.clear();
+        _isSelectionMode = false;
+      });
+
+      // Refresh the assets list
+      if (authProvider.authData != null) {
+        await assetProvider.refreshAssets(authProvider.authData!.token);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to unassign assets: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteSelectedAssets() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+
+    try {
+      for (final assetId in _selectedAssetIds) {
+        await assetProvider.deleteAsset(assetId, authProvider.authData!.token);
+      }
+
+      setState(() {
+        _selectedAssetIds.clear();
+        _isSelectionMode = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                '${_selectedAssetIds.length} assets deleted successfully')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -196,7 +328,8 @@ class _AssetListScreenState extends State<AssetListScreen> {
   }
 
   // App Bar Builder
-  PreferredSizeWidget _buildAppBar(AssetProvider assetProvider, AuthProvider authProvider) {
+  PreferredSizeWidget _buildAppBar(
+      AssetProvider assetProvider, AuthProvider authProvider) {
     final user = authProvider.currentUser;
 
     if (_isSelectionMode) {
@@ -217,13 +350,27 @@ class _AssetListScreenState extends State<AssetListScreen> {
             ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            onPressed: _selectedAssetIds.isNotEmpty ? _showBulkDeleteDialog : null,
+            onPressed:
+                _selectedAssetIds.isNotEmpty ? _showBulkDeleteDialog : null,
             tooltip: 'Delete Selected',
           ),
           IconButton(
             icon: const Icon(Icons.assignment_outlined),
-            onPressed: _selectedAssetIds.isNotEmpty ? _showBulkAssignDialog : null,
+            onPressed:
+                _selectedAssetIds.isNotEmpty ? _showBulkAssignDialog : null,
             tooltip: 'Assign Selected',
+          ),
+          IconButton(
+            icon: const Icon(Icons.assignment_outlined),
+            onPressed:
+                _selectedAssetIds.isNotEmpty ? _showBulkAssignDialog : null,
+            tooltip: 'Assign Selected',
+          ),
+          IconButton(
+            icon: const Icon(Icons.person_remove_outlined),
+            onPressed:
+                _selectedAssetIds.isNotEmpty ? _showBulkUnassignDialog : null,
+            tooltip: 'Unassign Selected',
           ),
         ],
       );
@@ -278,14 +425,14 @@ class _AssetListScreenState extends State<AssetListScreen> {
         children: [
           // Search and Filter Bar
           _buildSearchFilterBar(assetProvider),
-          
+
           // Selection Info Bar
           if (_isSelectionMode && _selectedAssetIds.isNotEmpty)
             _buildSelectionBar(),
-          
+
           // Statistics Bar
           _buildStatisticsBar(assetProvider),
-          
+
           // Assets List/Grid
           Expanded(
             child: _buildContent(assetProvider),
@@ -302,7 +449,8 @@ class _AssetListScreenState extends State<AssetListScreen> {
       color: Theme.of(context).primaryColor.withOpacity(0.1),
       child: Row(
         children: [
-          Icon(Icons.check_circle, color: Theme.of(context).primaryColor, size: 16),
+          Icon(Icons.check_circle,
+              color: Theme.of(context).primaryColor, size: 16),
           const SizedBox(width: 8),
           Text(
             '${_selectedAssetIds.length} assets selected',
@@ -366,9 +514,9 @@ class _AssetListScreenState extends State<AssetListScreen> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Active Filters Display
           if (assetProvider.currentFilters.assetType != null ||
               assetProvider.currentFilters.status != null ||
@@ -386,12 +534,15 @@ class _AssetListScreenState extends State<AssetListScreen> {
     final filters = assetProvider.currentFilters;
     final activeFilters = <String>[];
 
-    if (filters.assetType != null) activeFilters.add('Type: ${filters.assetType}');
+    if (filters.assetType != null)
+      activeFilters.add('Type: ${filters.assetType}');
     if (filters.status != null) activeFilters.add('Status: ${filters.status}');
-    if (filters.manufacturer != null) activeFilters.add('Manufacturer: ${filters.manufacturer}');
+    if (filters.manufacturer != null)
+      activeFilters.add('Manufacturer: ${filters.manufacturer}');
     if (filters.needsService == true) activeFilters.add('Needs Service');
     if (filters.assignmentStatus != null) {
-      activeFilters.add('Assignment: ${filters.assignmentStatus == 'assigned' ? 'Assigned' : 'Unassigned'}');
+      activeFilters.add(
+          'Assignment: ${filters.assignmentStatus == 'assigned' ? 'Assigned' : 'Unassigned'}');
     }
 
     return Column(
@@ -400,11 +551,13 @@ class _AssetListScreenState extends State<AssetListScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 4,
-          children: activeFilters.map((filter) => Chip(
-            label: Text(filter),
-            deleteIcon: const Icon(Icons.close, size: 16),
-            onDeleted: _clearFilters,
-          )).toList(),
+          children: activeFilters
+              .map((filter) => Chip(
+                    label: Text(filter),
+                    deleteIcon: const Icon(Icons.close, size: 16),
+                    onDeleted: _clearFilters,
+                  ))
+              .toList(),
         ),
         const SizedBox(height: 8),
         TextButton(
@@ -426,7 +579,8 @@ class _AssetListScreenState extends State<AssetListScreen> {
           _buildStatItem('Total', assetProvider.totalAssets.toString()),
           _buildStatItem('In Use', assetProvider.assetsInUse.toString()),
           _buildStatItem('Available', assetProvider.assetsInStorage.toString()),
-          _buildStatItem('Needs Service', assetProvider.assetsNeedingService.toString()),
+          _buildStatItem(
+              'Needs Service', assetProvider.assetsNeedingService.toString()),
         ],
       ),
     );
@@ -458,7 +612,7 @@ class _AssetListScreenState extends State<AssetListScreen> {
     if (assetProvider.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     if (assetProvider.error != null) {
       return Center(
         child: Column(
@@ -476,11 +630,11 @@ class _AssetListScreenState extends State<AssetListScreen> {
         ),
       );
     }
-    
+
     if (assetProvider.assets.isEmpty) {
       return _buildEmptyState();
     }
-    
+
     if (assetProvider.filteredAssets.isEmpty) {
       return Center(
         child: Column(
@@ -498,7 +652,7 @@ class _AssetListScreenState extends State<AssetListScreen> {
         ),
       );
     }
-    
+
     return RefreshIndicator(
       onRefresh: _refreshAssets,
       child: _isGridview
@@ -572,12 +726,13 @@ class _AssetListScreenState extends State<AssetListScreen> {
   // Asset List Item
   Widget _buildAssetListItem(Asset asset, AssetProvider assetProvider) {
     final isSelected = _selectedAssetIds.contains(asset.id);
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
+      color:
+          isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
       child: ListTile(
-        leading: _isSelectionMode 
+        leading: _isSelectionMode
             ? Checkbox(
                 value: isSelected,
                 onChanged: (value) => _toggleAssetSelection(asset.id),
@@ -610,7 +765,8 @@ class _AssetListScreenState extends State<AssetListScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: asset.statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -678,9 +834,10 @@ class _AssetListScreenState extends State<AssetListScreen> {
   // Asset Grid Item
   Widget _buildAssetGridItem(Asset asset, AssetProvider assetProvider) {
     final isSelected = _selectedAssetIds.contains(asset.id);
-    
+
     return Card(
-      color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
+      color:
+          isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
       child: InkWell(
         onTap: () {
           if (_isSelectionMode) {
@@ -731,7 +888,8 @@ class _AssetListScreenState extends State<AssetListScreen> {
                       ),
                     ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: asset.statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
@@ -791,7 +949,8 @@ class _AssetListScreenState extends State<AssetListScreen> {
                     const Icon(Icons.warning, size: 12, color: Colors.orange),
                   const Spacer(),
                   if (!_isSelectionMode)
-                    const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                    const Icon(Icons.chevron_right,
+                        size: 16, color: Colors.grey),
                 ],
               ),
             ],

@@ -1,9 +1,12 @@
 // filename: lib/providers/asset_provider.dart
 import 'dart:async';
-
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../models/asset.dart';
 import '../services/asset_service.dart';
+import '../services/secure_storage_service.dart';
+import '../utils/api_config.dart';
 
 class AssetProvider with ChangeNotifier {
   final AssetService _assetService = AssetService();
@@ -79,7 +82,6 @@ class AssetProvider with ChangeNotifier {
     _isLoading = true;
     _error = null;
 
-    // Use scheduleMicrotask to avoid build conflicts
     scheduleMicrotask(() {
       notifyListeners();
     });
@@ -219,76 +221,154 @@ class AssetProvider with ChangeNotifier {
     }
   }
 
-  // Assign asset to user
-  Future<void> assignAsset(int assetId, int userId, String token) async {
-    _isLoading = true;
-    _error = null;
-    scheduleMicrotask(() {
-      notifyListeners();
-    });
+  // Replace the assignAsset and unassignAsset methods in lib/providers/asset_provider.dart
 
-    try {
-      await _assetService.assignAsset(assetId, userId, token);
+// Assign asset to user - CORRECTED VERSION
+// Update the assignAsset method in lib/providers/asset_provider.dart
 
-      // Update local state
-      final index = _assets.indexWhere((asset) => asset.id == assetId);
-      if (index != -1) {
-        _assets[index] = _assets[index].copyWith(inUseBy: userId, status: 'IN_USE');
-      }
-
-      if (_selectedAsset?.id == assetId) {
-        _selectedAsset = _selectedAsset!.copyWith(inUseBy: userId, status: 'IN_USE');
-      }
-
-      _isLoading = false;
-      scheduleMicrotask(() {
-        notifyListeners();
-      });
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      scheduleMicrotask(() {
-        notifyListeners();
-      });
-      rethrow;
+Future<void> assignAsset(int assetId, int userId) async {
+  try {
+    final token = await SecureStorageService.getToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
     }
-  }
 
-  // Unassign asset
-  Future<void> unassignAsset(int assetId, String token) async {
-    _isLoading = true;
-    _error = null;
-    scheduleMicrotask(() {
-      notifyListeners();
-    });
+    final url = '${ApiConfig.apiBaseUrl}/assets/$assetId/assign';
+    
+    print('🔍 Assign Asset API Call:');
+    print('🔍 Asset ID: $assetId');
+    print('🔍 User ID: $userId');
+    print('🔍 URL: $url');
 
-    try {
-      await _assetService.unassignAsset(assetId, token);
+    // Use the correct parameter name: user_id (with underscore)
+    final requestBody = {
+      'user_id': userId, // This is what the API expects
+    };
 
-      // Update local state
-      final index = _assets.indexWhere((asset) => asset.id == assetId);
-      if (index != -1) {
-        _assets[index] = _assets[index].copyWith(inUseBy: null, status: 'IN_STORAGE');
-      }
+    final body = json.encode(requestBody);
+    
+    print('🔍 Request Body: $body');
 
-      if (_selectedAsset?.id == assetId) {
-        _selectedAsset = _selectedAsset!.copyWith(inUseBy: null, status: 'IN_STORAGE');
-      }
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: body,
+    );
 
-      _isLoading = false;
-      scheduleMicrotask(() {
-        notifyListeners();
-      });
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      scheduleMicrotask(() {
-        notifyListeners();
-      });
-      rethrow;
+    print('🔍 Response Status: ${response.statusCode}');
+    print('🔍 Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      print('✅ Asset assigned successfully!');
+      
+      // Parse the response to get updated asset data
+      final responseData = json.decode(response.body);
+      final updatedAsset = responseData['asset'];
+      print('✅ Updated asset: ${updatedAsset['internal_id']} assigned to user ${updatedAsset['in_use_by']}');
+    } else {
+      throw Exception('Failed to assign asset: ${response.statusCode} - ${response.body}');
     }
+  } catch (e) {
+    print('❌ Assignment failed: $e');
+    throw Exception('Assignment failed: $e');
   }
+}
+// Unassign asset - CORRECTED VERSION
+// Update the unassignAsset method in lib/providers/asset_provider.dart
 
+Future<void> unassignAsset(int assetId) async {
+  try {
+    final token = await SecureStorageService.getToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
+    }
+
+    final url = '${ApiConfig.apiBaseUrl}/assets/$assetId/unassign';
+    
+    print('🔍 Unassign Asset API Call:');
+    print('🔍 Asset ID: $assetId');
+    print('🔍 URL: $url');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    print('🔍 Response Status: ${response.statusCode}');
+    print('🔍 Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      print('✅ Asset unassigned successfully!');
+      
+      // Parse the response to get updated asset data
+      final responseData = json.decode(response.body);
+      final updatedAsset = responseData['asset'];
+      print('✅ Updated asset: ${updatedAsset['internal_id']} is now unassigned');
+    } else {
+      throw Exception('Failed to unassign asset: ${response.statusCode} - ${response.body}');
+    }
+  } catch (e) {
+    print('❌ Unassignment failed: $e');
+    throw Exception('Unassignment failed: $e');
+  }
+}
+
+
+Future<void> bulkAssignAssets(List<int> assetIds, int userId) async {
+  try {
+    final token = await SecureStorageService.getToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
+    }
+
+    final url = '${ApiConfig.apiBaseUrl}/assets/bulk-assign';
+    
+    print('🔍 Bulk Assign Assets API Call:');
+    print('🔍 Asset IDs: $assetIds');
+    print('🔍 User ID: $userId');
+    print('🔍 URL: $url');
+
+    // Use the correct parameter name: user_id (with underscore)
+    final requestBody = {
+      'assetIds': assetIds,
+      'user_id': userId, // Use user_id like the individual assignment
+    };
+
+    final body = json.encode(requestBody);
+    
+    print('🔍 Request Body: $body');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: body,
+    );
+
+    print('🔍 Response Status: ${response.statusCode}');
+    print('🔍 Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      print('✅ Assets bulk assigned successfully!');
+      
+      // Refresh the assets list to show updated assignments
+      await loadAssets(token);
+    } else {
+      throw Exception('Failed to bulk assign assets: ${response.statusCode} - ${response.body}');
+    }
+  } catch (e) {
+    print('❌ Bulk assignment failed: $e');
+    throw Exception('Bulk assignment failed: $e');
+  }
+}
   // Clear error
   void clearError() {
     _error = null;
@@ -319,44 +399,5 @@ class AssetProvider with ChangeNotifier {
     scheduleMicrotask(() {
       notifyListeners();
     });
-  }
-}
-
-// Extension for copying asset with updated fields
-extension AssetCopyWith on Asset {
-  Asset copyWith({
-    int? id,
-    String? internalId,
-    String? assetType,
-    String? manufacturer,
-    String? model,
-    String? modelNumber,
-    String? serialNumber,
-    String? status,
-    int? inUseBy,
-    DateTime? datePurchased,
-    DateTime? lastServiceDate,
-    DateTime? nextServiceDate,
-    String? assignedToName,
-    String? assignedToEmail,
-  }) {
-    return Asset(
-      id: id ?? this.id,
-      internalId: internalId ?? this.internalId,
-      assetType: assetType ?? this.assetType,
-      manufacturer: manufacturer ?? this.manufacturer,
-      model: model ?? this.model,
-      modelNumber: modelNumber ?? this.modelNumber,
-      serialNumber: serialNumber ?? this.serialNumber,
-      status: status ?? this.status,
-      inUseBy: inUseBy ?? this.inUseBy,
-      datePurchased: datePurchased ?? this.datePurchased,
-      lastServiceDate: lastServiceDate ?? this.lastServiceDate,
-      nextServiceDate: nextServiceDate ?? this.nextServiceDate,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-      assignedToName: assignedToName ?? this.assignedToName,
-      assignedToEmail: assignedToEmail ?? this.assignedToEmail,
-    );
   }
 }

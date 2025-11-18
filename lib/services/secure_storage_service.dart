@@ -1,4 +1,4 @@
-//filename: lib/services/secure_storage_service.dart
+// filename: lib/services/secure_storage_service.dart
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorageService {
@@ -40,6 +40,11 @@ class SecureStorageService {
       'email': email,
       'expiresAt': expiresAt,
     };
+  }
+
+  // Get token only - ADD THIS METHOD
+  static Future<String?> getToken() async {
+    return await _storage.read(key: _keyToken);
   }
 
   // Clear authentication data (logout)

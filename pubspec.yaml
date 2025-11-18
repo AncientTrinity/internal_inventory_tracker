@@ -18,6 +18,11 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   intl: ^0.18.1
   pull_to_refresh: ^2.0.0
+  csv: ^5.0.3
+  file_saver: ^0.1.1
+  pdf: ^3.10.4
+  printing: ^5.9.2
+  intl: ^0.18.1
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,4 @@
-//filename: lib/models/asset.dart
+// filename: lib/models/asset.dart
 import 'package:flutter/material.dart';
 
 class Asset {
@@ -16,8 +16,6 @@ class Asset {
   final DateTime? nextServiceDate;
   final DateTime createdAt;
   final DateTime updatedAt;
-
-
 
   // Joined fields for display
   final String? assignedToName;
@@ -41,9 +39,6 @@ class Asset {
     this.assignedToName,
     this.assignedToEmail,
   });
-
-
-
 
   factory Asset.fromJson(Map<String, dynamic> json) {
     return Asset(
@@ -128,11 +123,46 @@ class Asset {
       default: return assetType;
     }
   }
+
+  // CopyWith method
+  Asset copyWith({
+    int? id,
+    String? internalId,
+    String? assetType,
+    String? manufacturer,
+    String? model,
+    String? modelNumber,
+    String? serialNumber,
+    String? status,
+    int? inUseBy,
+    DateTime? datePurchased,
+    DateTime? lastServiceDate,
+    DateTime? nextServiceDate,
+    String? assignedToName,
+    String? assignedToEmail,
+  }) {
+    return Asset(
+      id: id ?? this.id,
+      internalId: internalId ?? this.internalId,
+      assetType: assetType ?? this.assetType,
+      manufacturer: manufacturer ?? this.manufacturer,
+      model: model ?? this.model,
+      modelNumber: modelNumber ?? this.modelNumber,
+      serialNumber: serialNumber ?? this.serialNumber,
+      status: status ?? this.status,
+      inUseBy: inUseBy ?? this.inUseBy,
+      datePurchased: datePurchased ?? this.datePurchased,
+      lastServiceDate: lastServiceDate ?? this.lastServiceDate,
+      nextServiceDate: nextServiceDate ?? this.nextServiceDate,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      assignedToName: assignedToName ?? this.assignedToName,
+      assignedToEmail: assignedToEmail ?? this.assignedToEmail,
+    );
+  }
 }
 
 // Asset filters for search
-// Add this to your existing lib/models/asset.dart file
-// Update the AssetFilters class:
 class AssetFilters {
   final String? searchQuery;
   final String? assetType;
@@ -180,7 +210,6 @@ class AssetFilters {
     return params;
   }
 
-  // Add this copyWith method:
   AssetFilters copyWith({
     String? searchQuery,
     String? assetType,

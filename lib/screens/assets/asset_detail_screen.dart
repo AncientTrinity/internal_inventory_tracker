@@ -1,12 +1,13 @@
-//filename: lib/screens/assets/asset_detail_screen.dart
+// filename: lib/screens/assets/asset_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../../models/asset.dart';
+import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/asset_provider.dart' show AssetProvider;
+import '../../providers/asset_provider.dart';
 import '../../widgets/common/app_drawer.dart';
 import 'asset_form_screen.dart';
+import 'user_selection_screen.dart';
 
 class AssetDetailScreen extends StatefulWidget {
   final int assetId;
@@ -59,7 +60,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
               _refreshAsset();
             },
           ),
-          // Edit action for Admin and IT
           if ((user?.isAdmin == true || user?.isITStaff == true) && asset != null)
             ListTile(
               leading: const Icon(Icons.edit),
@@ -68,21 +68,25 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                   MaterialPageRoute(builder: (context) => const AssetFormScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => AssetFormScreen(asset: asset),
+                  ),
                 );
               },
             ),
-          // Assignment actions
           if ((user?.isAdmin == true || user?.isITStaff == true) && asset != null)
             ListTile(
               leading: Icon(asset.isAssigned ? Icons.person_remove : Icons.person_add),
               title: Text(asset.isAssigned ? 'Unassign Asset' : 'Assign Asset'),
               onTap: () {
                 Navigator.pop(context);
-                _showAssignmentDialog(asset);
+                if (asset.isAssigned) {
+                  _unassignAsset();
+                } else {
+                  _showUserSelection();
+                }
               },
             ),
-          // Delete action for Admin only
           if (user?.isAdmin == true && asset != null)
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
@@ -97,32 +101,85 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  void _showAssignmentDialog(Asset asset) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(asset.isAssigned ? 'Unassign Asset' : 'Assign Asset'),
-        content: Text(
-          asset.isAssigned
-              ? 'Are you sure you want to unassign this asset from the current user?'
-              : 'Asset assignment functionality will be implemented in the next part.',
+  void _showUserSelection() async {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    final asset = assetProvider.selectedAsset;
+    
+    if (asset == null) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => UserSelectionScreen(
+          onUserSelected: (user) => _assignAssetToUser(user),
+          currentAssignedUserId: asset.inUseBy,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          if (asset.isAssigned)
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _unassignAsset();
-              },
-              child: const Text('Unassign'),
-            ),
-        ],
       ),
     );
+  }
+
+ Future<void> _assignAssetToUser(User user) async {
+  try {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    final asset = assetProvider.selectedAsset;
+    
+    if (asset == null) return;
+
+    print('🎯 Assigning Asset:');
+    print('🎯 Asset ID: ${asset.id}');
+    print('🎯 Asset Internal ID: ${asset.internalId}');
+    print('🎯 User to Assign:');
+    print('🎯   User ID: ${user.id}');
+    print('🎯   User Name: ${user.fullName}');
+    print('🎯   User Email: ${user.email}');
+
+    await assetProvider.assignAsset(asset.id, user.id);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Asset assigned to ${user.fullName}'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+    await _refreshAsset();
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to assign asset: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+  Future<void> _unassignAsset() async {
+    try {
+      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+      final asset = assetProvider.selectedAsset;
+      
+      if (asset == null) return;
+
+      // CORRECTED: Only 1 parameter (assetId)
+      await assetProvider.unassignAsset(asset.id);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Asset unassigned successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      await _refreshAsset();
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to unassign asset: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showDeleteDialog(Asset asset) {
@@ -153,26 +210,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  Future<void> _unassignAsset() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-
-    try {
-      await assetProvider.unassignAsset(widget.assetId, authProvider.authData!.token);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Asset unassigned successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to unassign asset: $e')),
-        );
-      }
-    }
-  }
-
   Future<void> _deleteAsset() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final assetProvider = Provider.of<AssetProvider>(context, listen: false);
@@ -183,7 +220,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Asset deleted successfully')),
         );
-        Navigator.pop(context); // Go back to list
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -226,10 +263,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                   onRefresh: _refreshAsset,
                   child: Column(
                     children: [
-                      // Page Indicator
                       _buildPageIndicator(),
-                      
-                      // Content Pages
                       Expanded(
                         child: PageView(
                           controller: _pageController,
@@ -251,7 +285,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  // Page Indicator
   Widget _buildPageIndicator() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -294,7 +327,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  // Error State
   Widget _buildErrorState() {
     return Center(
       child: Column(
@@ -320,14 +352,12 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  // Overview Page
   Widget _buildOverviewPage(Asset asset) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Asset Header Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -335,7 +365,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                 children: [
                   Row(
                     children: [
-                      // Asset Icon
                       Container(
                         width: 60,
                         height: 60,
@@ -350,7 +379,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Asset Info
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,121 +423,86 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // Quick Info Grid
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            children: [
-              _buildInfoCard(
-                'Asset Type',
-                asset.typeDisplay,
-                Icons.category,
-                Colors.blue,
-              ),
-              _buildInfoCard(
-                'Serial Number',
-                asset.serialNumber.isEmpty ? 'Not set' : asset.serialNumber,
-                Icons.confirmation_number,
-                Colors.green,
-              ),
-              _buildInfoCard(
-                'Model Number',
-                asset.modelNumber.isEmpty ? 'Not set' : asset.modelNumber,
-                Icons.model_training,
-                Colors.orange,
-              ),
-              _buildInfoCard(
-                'Purchase Date',
-                asset.datePurchased != null
-                    ? '${asset.datePurchased!.day}/${asset.datePurchased!.month}/${asset.datePurchased!.year}'
-                    : 'Not set',
-                Icons.calendar_today,
-                Colors.purple,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Assignment Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Assignment',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (asset.isAssigned) ...[
-                    ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.person),
-                      ),
-                      title: Text(asset.assignedToName ?? 'Unknown User'),
-                      subtitle: Text(asset.assignedToEmail ?? 'No email'),
-                      trailing: const Icon(Icons.chevron_right),
-                    ),
-                  ] else ...[
-                    const ListTile(
-                      leading: Icon(Icons.inventory_2, color: Colors.grey),
-                      title: Text('Not Assigned'),
-                      subtitle: Text('This asset is available for assignment'),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Dates Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Dates',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDateItem('Created', asset.createdAt),
-                  _buildDateItem('Last Updated', asset.updatedAt),
-                  if (asset.lastServiceDate != null)
-                    _buildDateItem('Last Service', asset.lastServiceDate!),
-                  if (asset.nextServiceDate != null)
-                    _buildDateItem(
-                      'Next Service',
-                      asset.nextServiceDate!,
-                      isWarning: asset.needsService,
-                    ),
-                ],
-              ),
-            ),
-          ),
+          _buildAssignmentSection(asset),
         ],
       ),
     );
   }
 
-  // Technical Page
+  Widget _buildAssignmentSection(Asset asset) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Assignment',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (asset.isAssigned) 
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Currently assigned to:',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.blue,
+                      child: Text(
+                        asset.assignedToName != null && asset.assignedToName!.isNotEmpty
+                            ? asset.assignedToName![0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    title: Text(
+                      asset.assignedToName ?? 'Unknown User',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(asset.assignedToEmail ?? 'No email'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.person_remove, color: Colors.red),
+                      onPressed: _unassignAsset,
+                      tooltip: 'Unassign Asset',
+                    ),
+                  ),
+                ],
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Not assigned to anyone',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _showUserSelection,
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Assign to User'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTechnicalPage(Asset asset) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -524,7 +517,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -545,62 +537,11 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
               ),
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          // Service Information
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Service Information',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildServiceInfoItem('Last Service', asset.lastServiceDate),
-                  _buildServiceInfoItem('Next Service', asset.nextServiceDate),
-                  if (asset.needsService) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning, color: Colors.orange[800]),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'This asset requires service',
-                              style: TextStyle(
-                                color: Colors.orange[800],
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  // Service Page
   Widget _buildServicePage(Asset asset) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -615,8 +556,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Placeholder for service history
           Card(
             child: Padding(
               padding: const EdgeInsets.all(32.0),
@@ -647,119 +586,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
               ),
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          // Quick Actions
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Quick Actions',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ActionChip(
-                        avatar: const Icon(Icons.build, size: 16),
-                        label: const Text('Log Service'),
-                        onPressed: () {
-                          // Will implement service logging
-                        },
-                      ),
-                      ActionChip(
-                        avatar: const Icon(Icons.schedule, size: 16),
-                        label: const Text('Schedule Service'),
-                        onPressed: () {
-                          // Will implement service scheduling
-                        },
-                      ),
-                      if (asset.needsService)
-                        ActionChip(
-                          avatar: const Icon(Icons.warning, size: 16),
-                          label: const Text('Mark as Serviced'),
-                          backgroundColor: Colors.orange[100],
-                          onPressed: () {
-                            // Will implement mark as serviced
-                          },
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper Methods
-  Widget _buildInfoCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateItem(String label, DateTime date, {bool isWarning = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          Text(
-            '$label: ',
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              color: isWarning ? Colors.orange : null,
-            ),
-          ),
-          Text(
-            '${date.day}/${date.month}/${date.year}',
-            style: TextStyle(
-              color: isWarning ? Colors.orange : Colors.grey[700],
-            ),
-          ),
-          if (isWarning) ...[
-            const SizedBox(width: 8),
-            Icon(Icons.warning, color: Colors.orange, size: 16),
-          ],
         ],
       ),
     );
@@ -780,26 +606,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
           child: Text(value),
         ),
       ],
-    );
-  }
-
-  Widget _buildServiceInfoItem(String label, DateTime? date) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-          Text(
-            date != null
-                ? '${date.day}/${date.month}/${date.year}'
-                : 'Not set',
-            style: TextStyle(
-              color: date != null ? Colors.grey[700] : Colors.grey[500],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
