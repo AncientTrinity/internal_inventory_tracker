@@ -198,12 +198,10 @@ class _AssetListScreenState extends State<AssetListScreen> {
 
  Future<void> _bulkAssignAssetsToUser(User user) async {
   try {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final assetProvider = Provider.of<AssetProvider>(context, listen: false);
     
     print('🎯 Bulk Assigning ${_selectedAssetIds.length} assets to ${user.fullName}');
     
-    // CORRECT: Call the asset provider method with user details
     await assetProvider.bulkAssignAssets(_selectedAssetIds.toList(), user.id, user.fullName, user.email);
     
     ScaffoldMessenger.of(context).showSnackBar(
@@ -219,10 +217,10 @@ class _AssetListScreenState extends State<AssetListScreen> {
       _isSelectionMode = false;
     });
     
-    // Refresh the assets list
-    if (authProvider.authData != null) {
-      await assetProvider.refreshAssets(authProvider.authData!.token);
-    }
+    // REMOVE the refresh - we updated locally
+    // if (authProvider.authData != null) {
+    //   await assetProvider.refreshAssets(authProvider.authData!.token);
+    // }
     
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(

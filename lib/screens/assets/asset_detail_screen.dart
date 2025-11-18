@@ -122,67 +122,69 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  Future<void> _assignAssetToUser(User user) async {
-    try {
-      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-      final asset = assetProvider.selectedAsset;
+ Future<void> _assignAssetToUser(User user) async {
+  try {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    final asset = assetProvider.selectedAsset;
+    
+    if (asset == null) return;
 
-      if (asset == null) return;
+    print('🎯 Assigning Asset to User:');
+    print('🎯 Asset: ${asset.internalId}');
+    print('🎯 User: ${user.fullName} (${user.email})');
 
-      print('🎯 Assigning Asset to User:');
-      print('🎯 Asset: ${asset.internalId}');
-      print('🎯 User: ${user.fullName} (${user.email})');
-
-      // CORRECT: Call the asset provider method with user details
-      await assetProvider.assignAsset(asset.id, user.id, user.fullName, user.email);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Asset assigned to ${user.fullName}'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      await _refreshAsset();
-
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to assign asset: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    await assetProvider.assignAsset(asset.id, user.id, user.fullName, user.email);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Asset assigned to ${user.fullName}'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+    
+     //await _refreshAsset();
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to assign asset: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
-  Future<void> _unassignAsset() async {
-    try {
-      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-      final asset = assetProvider.selectedAsset;
+Future<void> _unassignAsset() async {
+  try {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    final asset = assetProvider.selectedAsset;
+    
+    if (asset == null) return;
 
-      if (asset == null) return;
-
-      // CORRECTED: Only 1 parameter (assetId)
-      await assetProvider.unassignAsset(asset.id);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Asset unassigned successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      await _refreshAsset();
-
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to unassign asset: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    await assetProvider.unassignAsset(asset.id);
+    
+    // Force a UI update by triggering a rebuild
+    if (mounted) {
+      setState(() {});
     }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Asset unassigned successfully'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to unassign asset: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
   void _showDeleteDialog(Asset asset) {
     showDialog(

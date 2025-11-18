@@ -9,27 +9,39 @@ class AssetService {
   final String baseUrl = ApiConfig.apiBaseUrl;
 
   // Helper method to handle API responses
-dynamic _handleResponse(http.Response response) {
-  if (response.statusCode >= 200 && response.statusCode < 300) {
-    final dynamic responseBody = json.decode(response.body);
-    
-    // Handle both array and object responses
-    if (responseBody is List) {
-      return responseBody; // Return raw array
-    } else if (responseBody is Map) {
-      return responseBody['data'] ?? responseBody; // Return data or whole object
+// Also update the _handleResponse method to be more robust
+  dynamic _handleResponse(http.Response response) {
+    print('🔍 Handling Response - Status: ${response.statusCode}');
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      try {
+        final dynamic responseBody = json.decode(response.body);
+        print('🔍 Successfully parsed JSON response');
+
+        // Handle different response formats
+        if (responseBody is List) {
+          return responseBody;
+        } else if (responseBody is Map) {
+          return responseBody['data'] ?? responseBody['asset'] ?? responseBody;
+        } else {
+          return responseBody;
+        }
+      } catch (e) {
+        print('❌ JSON decode error: $e');
+        print('❌ Response body that failed to decode: ${response.body}');
+        throw Exception('Invalid JSON response from server: ${response.body}');
+      }
     } else {
-      return responseBody; // Return whatever it is
-    }
-  } else {
-    final dynamic errorBody = json.decode(response.body);
-    if (errorBody is Map) {
-      throw Exception(errorBody['error'] ?? 'API Error: ${response.statusCode}');
-    } else {
-      throw Exception('API Error: ${response.statusCode}');
+      // Try to parse error message
+      try {
+        final errorBody = json.decode(response.body);
+        throw Exception(errorBody['error'] ?? errorBody['message'] ?? 'API Error: ${response.statusCode}');
+      } catch (e) {
+        // If can't parse error as JSON, use the raw response
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
     }
   }
-}
 
   // Get all assets with optional filters
   // Get asset statistics
@@ -116,24 +128,35 @@ Future<List<Asset>> getAssets({AssetFilters? filters, String? token}) async {
 }
 
   // Get asset by ID
-  Future<Asset> getAssetById(int id, String token) async {
-    final url = Uri.parse('$baseUrl/assets/$id');
+Future<Asset> getAssetById(int id, String token) async {
+  final url = Uri.parse('${ApiConfig.apiBaseUrl}/assets/$id');
 
-    final response = await http.get(
-      url,
-      headers: {
-        ...ApiConfig.headers,
-        'Authorization': 'Bearer $token',
-      },
-    );
+  final response = await http.get(
+    url,
+    headers: {
+      ...ApiConfig.headers,
+      'Authorization': 'Bearer $token',
+    },
+  );
 
-    final responseData = _handleResponse(response);
-    return Asset.fromJson(responseData);
-  }
+  final responseData = _handleResponse(response);
+  
+  print('🔍 Asset Service - Raw API Response:');
+  print('🔍 $responseData');
+  
+  return Asset.fromJson(responseData);
+}
 
   // Create new asset
-  Future<Asset> createAsset(Asset asset, String token) async {
-    final url = Uri.parse('$baseUrl/assets');
+ // In lib/services/asset_service.dart - Update the createAsset method
+
+Future<Asset> createAsset(Asset asset, String token) async {
+  try {
+    final url = Uri.parse('${ApiConfig.apiBaseUrl}/assets');
+    
+    print('🔍 Create Asset API Call:');
+    print('🔍 URL: $url');
+    print('🔍 Request Body: ${asset.toJson()}');
 
     final response = await http.post(
       url,
@@ -144,9 +167,31 @@ Future<List<Asset>> getAssets({AssetFilters? filters, String? token}) async {
       body: json.encode(asset.toJson()),
     );
 
-    final responseData = _handleResponse(response);
-    return Asset.fromJson(responseData);
+    print('🔍 Create Asset Response:');
+    print('🔍 Status Code: ${response.statusCode}');
+    print('🔍 Response Headers: ${response.headers}');
+    print('🔍 Raw Response Body: ${response.body}');
+
+    // Check if response is valid JSON before parsing
+    if (response.body.trim().isEmpty) {
+      throw Exception('Empty response from server');
+    }
+
+    try {
+      final responseData = _handleResponse(response);
+      print('🔍 Parsed Response Data: $responseData');
+      return Asset.fromJson(responseData);
+    } catch (jsonError) {
+      print('❌ JSON Parsing Error: $jsonError');
+      print('❌ Raw response that failed to parse: ${response.body}');
+      throw Exception('Failed to parse server response: $jsonError');
+    }
+
+  } catch (e) {
+    print('❌ Create Asset Failed: $e');
+    rethrow;
   }
+}
 
   // Update asset
   Future<Asset> updateAsset(Asset asset, String token) async {

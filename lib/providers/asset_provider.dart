@@ -94,66 +94,173 @@ class AssetProvider with ChangeNotifier {
 
 
   // Load all assets
-  Future<void> loadAssets(String token, {AssetFilters? filters}) async {
-    _isLoading = true;
-    _error = null;
+Future<void> loadAssets(String token, {AssetFilters? filters}) async {
+  _isLoading = true;
+  _error = null;
 
+  scheduleMicrotask(() {
+    notifyListeners();
+  });
+
+  try {
+    if (filters != null) {
+      _currentFilters = filters;
+    }
+
+    final newAssets = await _assetService.getAssets(
+      filters: _currentFilters,
+      token: token,
+    );
+
+    // Preserve user details from our local state, but only if the asset is still assigned
+    for (final newAsset in newAssets) {
+      final existingAssetIndex = _assets.indexWhere((a) => a.id == newAsset.id);
+      if (existingAssetIndex != -1) {
+        final existingAsset = _assets[existingAssetIndex];
+        
+        // Only preserve user details if:
+        // 1. We have user details locally AND
+        // 2. The asset is still assigned to the same user OR the new asset has no assignment
+        if (existingAsset.assignedToName != null && 
+            (newAsset.inUseBy == existingAsset.inUseBy || newAsset.inUseBy == null)) {
+          final newAssetIndex = newAssets.indexWhere((a) => a.id == newAsset.id);
+          if (newAssetIndex != -1) {
+            newAssets[newAssetIndex] = newAsset.copyWith(
+              assignedToName: existingAsset.assignedToName,
+              assignedToEmail: existingAsset.assignedToEmail,
+            );
+          }
+        }
+      }
+    }
+
+    _assets = newAssets;
+    _isLoading = false;
     scheduleMicrotask(() {
       notifyListeners();
     });
-
-    try {
-      if (filters != null) {
-        _currentFilters = filters;
-      }
-
-      _assets = await _assetService.getAssets(
-        filters: _currentFilters,
-        token: token,
-      );
-
-      _isLoading = false;
-      scheduleMicrotask(() {
-        notifyListeners();
-      });
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      scheduleMicrotask(() {
-        notifyListeners();
-      });
-      rethrow;
-    }
+  } catch (e) {
+    _error = e.toString();
+    _isLoading = false;
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
+    rethrow;
   }
+}
+  // Enhance all assigned assets with user details
+  Future<void> _enhanceAssetWithUserDetails(Asset asset) async {
+  try {
+    if (asset.inUseBy != null) {
+      // We need access to auth provider to get user details
+      // For now, we'll use a direct API call or rely on the auth provider context
+      final userDetails = await _getUserDetails(asset.inUseBy!);
+      if (userDetails != null) {
+        final updatedAsset = asset.copyWith(
+          assignedToName: userDetails['name'],
+          assignedToEmail: userDetails['email'],
+        );
+        
+        // Update in local list
+        final assetIndex = _assets.indexWhere((a) => a.id == asset.id);
+        if (assetIndex != -1) {
+          _assets[assetIndex] = updatedAsset;
+        }
+        
+        if (_selectedAsset?.id == asset.id) {
+          _selectedAsset = updatedAsset;
+        }
+        
+        notifyListeners();
+        print('✅ Enhanced asset ${asset.internalId} with user: ${userDetails['name']}');
+      }
+    }
+  } catch (e) {
+    print('❌ Failed to enhance asset with user details: $e');
+  }
+}
+
+Future<void> _enhanceAssetsWithUserDetails() async {
+  try {
+    for (final asset in _assets) {
+      if (asset.inUseBy != null && asset.assignedToName == null) {
+        await _enhanceAssetWithUserDetails(asset);
+      }
+    }
+  } catch (e) {
+    print('❌ Failed to enhance assets with user details: $e');
+  }
+}
+ 
+  // Helper to get user details by ID
+  Future<Map<String, String>?> _getUserDetails(int userId) async {
+  try {
+    final token = await SecureStorageService.getToken();
+    if (token == null) return null;
+
+    // You need to implement this based on your users API
+    // This is a placeholder - adjust based on your actual users endpoint
+    final response = await http.get(
+      Uri.parse('${ApiConfig.apiBaseUrl}/users/$userId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final userData = json.decode(response.body);
+      return {
+        'name': userData['full_name'] ?? userData['username'] ?? 'Unknown User',
+        'email': userData['email'] ?? '',
+      };
+    }
+  } catch (e) {
+    print('❌ Failed to get user details for ID $userId: $e');
+  }
+  return null;
+}
 
   // Refresh assets
   Future<void> refreshAssets(String token) async {
     await loadAssets(token);
   }
 
-  // Load asset by ID
-  Future<void> loadAssetById(int id, String token) async {
-    _isLoading = true;
-    _error = null;
+Future<void> loadAssetById(int id, String token) async {
+  _isLoading = true;
+  _error = null;
+  scheduleMicrotask(() {
+    notifyListeners();
+  });
+
+  try {
+    _selectedAsset = await _assetService.getAssetById(id, token);
+    
+    // If asset is assigned to a user, fetch user details
+    if (_selectedAsset?.inUseBy != null) {
+      await _enhanceAssetWithUserDetails(_selectedAsset!);
+    }
+    
+    print('🔍 Loaded Asset Details:');
+    print('🔍 Asset ID: ${_selectedAsset?.id}');
+    print('🔍 Internal ID: ${_selectedAsset?.internalId}');
+    print('🔍 Assigned To: ${_selectedAsset?.inUseBy}');
+    print('🔍 Assigned Name: ${_selectedAsset?.assignedToName}');
+    print('🔍 Assigned Email: ${_selectedAsset?.assignedToEmail}');
+    
+    _isLoading = false;
     scheduleMicrotask(() {
       notifyListeners();
     });
-
-    try {
-      _selectedAsset = await _assetService.getAssetById(id, token);
-      _isLoading = false;
-      scheduleMicrotask(() {
-        notifyListeners();
-      });
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      scheduleMicrotask(() {
-        notifyListeners();
-      });
-      rethrow;
-    }
+  } catch (e) {
+    _error = e.toString();
+    _isLoading = false;
+    scheduleMicrotask(() {
+      notifyListeners();
+    });
+    rethrow;
   }
+}
 
   // Create new asset
   Future<void> createAsset(Asset asset, String token) async {
@@ -289,41 +396,56 @@ class AssetProvider with ChangeNotifier {
   }
 
 // Unassign asset
-  Future<void> unassignAsset(int assetId) async {
-    try {
-      final token = await SecureStorageService.getToken();
-      if (token == null) {
-        throw Exception('No authentication token found');
-      }
+  // In lib/providers/asset_provider.dart - Update the unassignAsset method
 
-      final url = '${ApiConfig.apiBaseUrl}/assets/$assetId/unassign';
-
-      print('🔍 Unassign Asset API Call:');
-      print('🔍 Asset ID: $assetId');
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      print('🔍 Response Status: ${response.statusCode}');
-      print('🔍 Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        // Clear user details
-        _updateLocalAssetWithUserDetails(assetId, null, null, null);
-        print('✅ Asset unassigned successfully!');
-      } else {
-        throw Exception('Failed to unassign asset: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Unassignment failed: $e');
-      throw Exception('Unassignment failed: $e');
+Future<void> unassignAsset(int assetId) async {
+  try {
+    final token = await SecureStorageService.getToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
     }
+
+    final url = '${ApiConfig.apiBaseUrl}/assets/$assetId/unassign';
+    
+    print('🔍 Unassign Asset Debug:');
+    print('🔍 Asset ID: $assetId');
+    
+    // Log current state before unassignment
+    final currentAsset = _assets.firstWhere((a) => a.id == assetId, orElse: () => _selectedAsset!);
+    print('🔍 Before unassign - Assigned To: ${currentAsset.inUseBy}');
+    print('🔍 Before unassign - Assigned Name: ${currentAsset.assignedToName}');
+    print('🔍 Before unassign - Assigned Email: ${currentAsset.assignedToEmail}');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    print('🔍 Response Status: ${response.statusCode}');
+    print('🔍 Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      // Clear user details from local asset
+      _updateLocalAssetWithUserDetails(assetId, null, null, null);
+      print('✅ Asset unassigned successfully!');
+      
+      // Log state after unassignment
+      final updatedAsset = _assets.firstWhere((a) => a.id == assetId, orElse: () => _selectedAsset!);
+      print('🔍 After unassign - Assigned To: ${updatedAsset.inUseBy}');
+      print('🔍 After unassign - Assigned Name: ${updatedAsset.assignedToName}');
+      print('🔍 After unassign - Assigned Email: ${updatedAsset.assignedToEmail}');
+    } else {
+      throw Exception('Failed to unassign asset: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('❌ Unassignment failed: $e');
+    throw Exception('Unassignment failed: $e');
   }
+}
+
 
 // Bulk assign assets to user
   Future<void> bulkAssignAssets(List<int> assetIds, int userId, String userName, String userEmail) async {
@@ -368,19 +490,23 @@ class AssetProvider with ChangeNotifier {
   }
 
 // Helper method to update local asset state with user assignment details
+  // Make sure the helper method properly clears user details
   void _updateLocalAssetWithUserDetails(int assetId, int? userId, String? userName, String? userEmail) {
     final assetIndex = _assets.indexWhere((asset) => asset.id == assetId);
     if (assetIndex != -1) {
       final asset = _assets[assetIndex];
+
+      // Create updated asset - when unassigning, userId is null so clear everything
       final updatedAsset = asset.copyWith(
         inUseBy: userId,
-        assignedToName: userName,
-        assignedToEmail: userEmail,
+        assignedToName: userName, // This will be null when unassigning
+        assignedToEmail: userEmail, // This will be null when unassigning
         status: userId != null ? 'IN_USE' : 'IN_STORAGE',
       );
 
       _assets[assetIndex] = updatedAsset;
 
+      // Also update the selected asset if it's the same one
       if (_selectedAsset?.id == assetId) {
         _selectedAsset = updatedAsset;
       }
@@ -390,7 +516,7 @@ class AssetProvider with ChangeNotifier {
       if (userId != null) {
         print('✅ Local asset updated with user: $userName ($userEmail)');
       } else {
-        print('✅ Local asset updated - unassigned');
+        print('✅ Local asset updated - unassigned (cleared user details)');
       }
     }
   }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'providers/asset_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
+import 'providers/service_log_provider.dart';
 import 'screens/assets/asset_form_screen.dart';
 import 'screens/assets/asset_list_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -26,6 +27,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => AssetProvider()),
+        ChangeNotifierProvider(create: (context) => ServiceLogProvider()),
       ],
       child: MaterialApp(
         title: 'Internal Inventory Tracker',

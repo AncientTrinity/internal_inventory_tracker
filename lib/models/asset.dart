@@ -67,21 +67,27 @@ class Asset {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'internal_id': internalId,
-      'asset_type': assetType,
-      'manufacturer': manufacturer,
-      'model': model,
-      'model_number': modelNumber,
-      'serial_number': serialNumber,
-      'status': status,
-      'in_use_by': inUseBy,
-      'date_purchased': datePurchased?.toIso8601String(),
-      'last_service_date': lastServiceDate?.toIso8601String(),
-      'next_service_date': nextServiceDate?.toIso8601String(),
-    };
-  }
+ Map<String, dynamic> toJson() {
+  return {
+    'internal_id': internalId,
+    'asset_type': assetType,
+    'manufacturer': manufacturer,
+    'model': model,
+    'model_number': modelNumber,
+    'serial_number': serialNumber,
+    'status': status,
+    'in_use_by': inUseBy,
+    'date_purchased': datePurchased != null 
+        ? _formatDateForApi(datePurchased!) // Use YYYY-MM-DD format
+        : null,
+    'last_service_date': lastServiceDate != null
+        ? _formatDateForApi(lastServiceDate!) // Use YYYY-MM-DD format
+        : null,
+    'next_service_date': nextServiceDate != null
+        ? _formatDateForApi(nextServiceDate!) // Use YYYY-MM-DD format
+        : null,
+  };
+}
 
   // Helper methods
   bool get isAssigned => inUseBy != null;
@@ -101,6 +107,10 @@ class Asset {
       default: return status;
     }
   }
+
+  String _formatDateForApi(DateTime date) {
+  return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
 
   Color get statusColor {
     switch (status) {
