@@ -1,10 +1,15 @@
 // filename: lib/screens/assets/asset_detail_screen.dart
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../models/asset.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
+import '../../services/secure_storage_service.dart';
+import '../../utils/api_config.dart';
 import '../../widgets/common/app_drawer.dart';
 import 'asset_form_screen.dart';
 import 'user_selection_screen.dart';
@@ -117,61 +122,58 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
- Future<void> _assignAssetToUser(User user) async {
-  try {
-    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-    final asset = assetProvider.selectedAsset;
-    
-    if (asset == null) return;
+  Future<void> _assignAssetToUser(User user) async {
+    try {
+      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+      final asset = assetProvider.selectedAsset;
 
-    print('🎯 Assigning Asset:');
-    print('🎯 Asset ID: ${asset.id}');
-    print('🎯 Asset Internal ID: ${asset.internalId}');
-    print('🎯 User to Assign:');
-    print('🎯   User ID: ${user.id}');
-    print('🎯   User Name: ${user.fullName}');
-    print('🎯   User Email: ${user.email}');
+      if (asset == null) return;
 
-    await assetProvider.assignAsset(asset.id, user.id);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Asset assigned to ${user.fullName}'),
-        backgroundColor: Colors.green,
-      ),
-    );
-    
-    await _refreshAsset();
-    
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to assign asset: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
+      print('🎯 Assigning Asset to User:');
+      print('🎯 Asset: ${asset.internalId}');
+      print('🎯 User: ${user.fullName} (${user.email})');
+
+      // CORRECT: Call the asset provider method with user details
+      await assetProvider.assignAsset(asset.id, user.id, user.fullName, user.email);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Asset assigned to ${user.fullName}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      await _refreshAsset();
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to assign asset: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
-}
 
   Future<void> _unassignAsset() async {
     try {
       final assetProvider = Provider.of<AssetProvider>(context, listen: false);
       final asset = assetProvider.selectedAsset;
-      
+
       if (asset == null) return;
 
       // CORRECTED: Only 1 parameter (assetId)
       await assetProvider.unassignAsset(asset.id);
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Asset unassigned successfully'),
           backgroundColor: Colors.green,
         ),
       );
-      
+
       await _refreshAsset();
-      
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

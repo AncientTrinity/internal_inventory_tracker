@@ -10,6 +10,7 @@ import '../../providers/asset_provider.dart';
 import '../../widgets/common/app_drawer.dart';
 import 'asset_detail_screen.dart';
 import 'asset_filter_sheet.dart';
+import 'export_screen.dart';
 
 class AssetListScreen extends StatefulWidget {
   const AssetListScreen({super.key});
@@ -48,6 +49,7 @@ class _AssetListScreenState extends State<AssetListScreen> {
     }
   }
 
+  
   void _applySearchFilter(String query) {
     final assetProvider = Provider.of<AssetProvider>(context, listen: false);
     final currentFilters = assetProvider.currentFilters;
@@ -194,43 +196,43 @@ class _AssetListScreenState extends State<AssetListScreen> {
     );
   }
 
-  Future<void> _bulkAssignAssetsToUser(User user) async {
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-
-      print(
-          '🎯 Bulk Assigning ${_selectedAssetIds.length} assets to ${user.fullName}');
-
-      await assetProvider.bulkAssignAssets(_selectedAssetIds.toList(), user.id);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              '${_selectedAssetIds.length} assets assigned to ${user.fullName}'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Clear selection and exit selection mode
-      setState(() {
-        _selectedAssetIds.clear();
-        _isSelectionMode = false;
-      });
-
-      // Refresh the assets list
-      if (authProvider.authData != null) {
-        await assetProvider.refreshAssets(authProvider.authData!.token);
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to assign assets: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+ Future<void> _bulkAssignAssetsToUser(User user) async {
+  try {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    
+    print('🎯 Bulk Assigning ${_selectedAssetIds.length} assets to ${user.fullName}');
+    
+    // CORRECT: Call the asset provider method with user details
+    await assetProvider.bulkAssignAssets(_selectedAssetIds.toList(), user.id, user.fullName, user.email);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${_selectedAssetIds.length} assets assigned to ${user.fullName}'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+    // Clear selection and exit selection mode
+    setState(() {
+      _selectedAssetIds.clear();
+      _isSelectionMode = false;
+    });
+    
+    // Refresh the assets list
+    if (authProvider.authData != null) {
+      await assetProvider.refreshAssets(authProvider.authData!.token);
     }
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to assign assets: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
 // Add this method to asset_list_screen.dart if you want bulk unassign
 
@@ -371,6 +373,16 @@ class _AssetListScreenState extends State<AssetListScreen> {
             onPressed:
                 _selectedAssetIds.isNotEmpty ? _showBulkUnassignDialog : null,
             tooltip: 'Unassign Selected',
+          ),
+          IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ExportScreen()), // Remove const
+              );
+            },
+            tooltip: 'Export Assets',
           ),
         ],
       );
