@@ -112,22 +112,33 @@ Future<void> loadAssets(String token, {AssetFilters? filters}) async {
       token: token,
     );
 
-    // Preserve user details from our local state, but only if the asset is still assigned
+    // The API doesn't provide user details, so we rely on our local state
+    // But we need to make sure the assignment status matches the API data
     for (final newAsset in newAssets) {
       final existingAssetIndex = _assets.indexWhere((a) => a.id == newAsset.id);
       if (existingAssetIndex != -1) {
         final existingAsset = _assets[existingAssetIndex];
         
-        // Only preserve user details if:
-        // 1. We have user details locally AND
-        // 2. The asset is still assigned to the same user OR the new asset has no assignment
-        if (existingAsset.assignedToName != null && 
-            (newAsset.inUseBy == existingAsset.inUseBy || newAsset.inUseBy == null)) {
+        // If the API says the asset is assigned but we don't have user details locally,
+        // or if the assignment status changed, update our local state
+        if (newAsset.inUseBy != null && existingAsset.assignedToName == null) {
+          // Asset is assigned according to API but we don't have user details
+          // We can't display user details, but we should update the assignment status
           final newAssetIndex = newAssets.indexWhere((a) => a.id == newAsset.id);
           if (newAssetIndex != -1) {
             newAssets[newAssetIndex] = newAsset.copyWith(
-              assignedToName: existingAsset.assignedToName,
-              assignedToEmail: existingAsset.assignedToEmail,
+              status: 'IN_USE',
+            );
+          }
+        } else if (newAsset.inUseBy == null && existingAsset.assignedToName != null) {
+          // Asset is unassigned according to API but we still have user details locally
+          // Clear the local user details to match the API state
+          final newAssetIndex = newAssets.indexWhere((a) => a.id == newAsset.id);
+          if (newAssetIndex != -1) {
+            newAssets[newAssetIndex] = newAsset.copyWith(
+              assignedToName: null,
+              assignedToEmail: null,
+              status: 'IN_STORAGE',
             );
           }
         }
@@ -343,61 +354,126 @@ Future<void> loadAssetById(int id, String token) async {
       rethrow;
     }
   }
-// Update the assignAsset method to use the nullable version
-// In lib/providers/asset_provider.dart - Replace from the original assignAsset method
+// In lib/providers/asset_provider.dart - Complete assignment methods
 
 // ========== ASSIGNMENT METHODS ==========
 
-// Assign asset to user with user details
-  Future<void> assignAsset(int assetId, int userId, String userName, String userEmail) async {
-    try {
-      final token = await SecureStorageService.getToken();
-      if (token == null) {
-        throw Exception('No authentication token found');
-      }
-
-      final url = '${ApiConfig.apiBaseUrl}/assets/$assetId/assign';
-
-      print('🔍 Assign Asset API Call:');
-      print('🔍 Asset ID: $assetId');
-      print('🔍 User ID: $userId');
-      print('🔍 User Name: $userName');
-      print('🔍 User Email: $userEmail');
-
-      final requestBody = {
-        'user_id': userId,
-      };
-
-      final body = json.encode(requestBody);
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: body,
-      );
-
-      print('🔍 Response Status: ${response.statusCode}');
-      print('🔍 Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        // Update local state with user details
-        _updateLocalAssetWithUserDetails(assetId, userId, userName, userEmail);
-        print('✅ Asset assigned successfully with user details!');
-      } else {
-        throw Exception('Failed to assign asset: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Assignment failed: $e');
-      throw Exception('Assignment failed: $e');
+// Individual asset assignment
+Future<void> assignAsset(int assetId, int userId, String userName, String userEmail) async {
+  try {
+    final token = await SecureStorageService.getToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
     }
+
+    final url = '${ApiConfig.apiBaseUrl}/assets/$assetId/assign';
+    
+    print('🔍 Assign Asset API Call:');
+    print('🔍 Asset ID: $assetId');
+    print('🔍 User ID: $userId');
+    print('🔍 User Name: $userName');
+    print('🔍 User Email: $userEmail');
+
+    final requestBody = {
+      'user_id': userId,
+    };
+
+    final body = json.encode(requestBody);
+    
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: body,
+    );
+
+    print('🔍 Response Status: ${response.statusCode}');
+    print('🔍 Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      // Update local state with user details
+      _updateLocalAssetWithUserDetails(assetId, userId, userName, userEmail);
+      print('✅ Asset assigned successfully with user details!');
+    } else {
+      throw Exception('Failed to assign asset: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('❌ Assignment failed: $e');
+    throw Exception('Assignment failed: $e');
   }
+}
 
-// Unassign asset
-  // In lib/providers/asset_provider.dart - Update the unassignAsset method
+// Bulk asset assignment
 
+Future<void> bulkAssignAssets(List<int> assetIds, int userId, String userName, String userEmail) async {
+  try {
+    final token = await SecureStorageService.getToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
+    }
+
+    final url = '${ApiConfig.apiBaseUrl}/assets/bulk-assign';
+    
+    print('🔍 Bulk Assign Assets API Call:');
+    print('🔍 Asset IDs: $assetIds');
+    print('🔍 User ID: $userId');
+    print('🔍 User Name: $userName');
+    print('🔍 User Email: $userEmail');
+
+    // FIX: Use "asset_ids" instead of "assetIds"
+    final requestBody = {
+      'asset_ids': assetIds, // Changed from 'assetIds' to 'asset_ids'
+      'user_id': userId,
+    };
+
+    final body = json.encode(requestBody);
+
+    print('🔍 Request Body: $body');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: body,
+    );
+
+    print('🔍 Response Status: ${response.statusCode}');
+    print('🔍 Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final responseData = json.decode(response.body);
+      final successIds = List<int>.from(responseData['success'] ?? []);
+      final failedIds = List<int>.from(responseData['failed'] ?? []);
+      
+      print('✅ Bulk assignment successful for assets: $successIds');
+      if (failedIds.isNotEmpty) {
+        print('❌ Bulk assignment failed for assets: $failedIds');
+      }
+
+      // Only update local state for successfully assigned assets
+      for (final assetId in successIds) {
+        _updateLocalAssetWithUserDetails(assetId, userId, userName, userEmail);
+      }
+      
+      print('✅ ${successIds.length} assets bulk assigned to $userName');
+      
+      // If there were failures, throw an error
+      if (failedIds.isNotEmpty) {
+        throw Exception('Failed to assign assets: $failedIds');
+      }
+    } else {
+      throw Exception('Failed to bulk assign assets: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('❌ Bulk assignment failed: $e');
+    throw Exception('Bulk assignment failed: $e');
+  }
+}
+// Unassign individual asset
 Future<void> unassignAsset(int assetId) async {
   try {
     final token = await SecureStorageService.getToken();
@@ -407,14 +483,8 @@ Future<void> unassignAsset(int assetId) async {
 
     final url = '${ApiConfig.apiBaseUrl}/assets/$assetId/unassign';
     
-    print('🔍 Unassign Asset Debug:');
+    print('🔍 Unassign Asset API Call:');
     print('🔍 Asset ID: $assetId');
-    
-    // Log current state before unassignment
-    final currentAsset = _assets.firstWhere((a) => a.id == assetId, orElse: () => _selectedAsset!);
-    print('🔍 Before unassign - Assigned To: ${currentAsset.inUseBy}');
-    print('🔍 Before unassign - Assigned Name: ${currentAsset.assignedToName}');
-    print('🔍 Before unassign - Assigned Email: ${currentAsset.assignedToEmail}');
 
     final response = await http.post(
       Uri.parse(url),
@@ -431,12 +501,6 @@ Future<void> unassignAsset(int assetId) async {
       // Clear user details from local asset
       _updateLocalAssetWithUserDetails(assetId, null, null, null);
       print('✅ Asset unassigned successfully!');
-      
-      // Log state after unassignment
-      final updatedAsset = _assets.firstWhere((a) => a.id == assetId, orElse: () => _selectedAsset!);
-      print('🔍 After unassign - Assigned To: ${updatedAsset.inUseBy}');
-      print('🔍 After unassign - Assigned Name: ${updatedAsset.assignedToName}');
-      print('🔍 After unassign - Assigned Email: ${updatedAsset.assignedToEmail}');
     } else {
       throw Exception('Failed to unassign asset: ${response.statusCode}');
     }
@@ -446,84 +510,35 @@ Future<void> unassignAsset(int assetId) async {
   }
 }
 
-
-// Bulk assign assets to user
-  Future<void> bulkAssignAssets(List<int> assetIds, int userId, String userName, String userEmail) async {
-    try {
-      final token = await SecureStorageService.getToken();
-      if (token == null) {
-        throw Exception('No authentication token found');
-      }
-
-      final url = '${ApiConfig.apiBaseUrl}/assets/bulk-assign';
-
-      final requestBody = {
-        'assetIds': assetIds,
-        'user_id': userId,
-      };
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode(requestBody),
-      );
-
-      print('🔍 Bulk Assign Response Status: ${response.statusCode}');
-      print('🔍 Bulk Assign Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        // Update all assets with user details
-        for (final assetId in assetIds) {
-          _updateLocalAssetWithUserDetails(assetId, userId, userName, userEmail);
-        }
-        print('✅ ${assetIds.length} assets bulk assigned to $userName');
-      } else {
-        throw Exception('Failed to bulk assign assets: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Bulk assignment failed: $e');
-      throw Exception('Bulk assignment failed: $e');
-    }
-  }
-
 // Helper method to update local asset state with user assignment details
-  // Make sure the helper method properly clears user details
-  void _updateLocalAssetWithUserDetails(int assetId, int? userId, String? userName, String? userEmail) {
-    final assetIndex = _assets.indexWhere((asset) => asset.id == assetId);
-    if (assetIndex != -1) {
-      final asset = _assets[assetIndex];
+void _updateLocalAssetWithUserDetails(int assetId, int? userId, String? userName, String? userEmail) {
+  final assetIndex = _assets.indexWhere((asset) => asset.id == assetId);
+  if (assetIndex != -1) {
+    final asset = _assets[assetIndex];
+    final updatedAsset = asset.copyWith(
+      inUseBy: userId,
+      assignedToName: userName,
+      assignedToEmail: userEmail,
+      status: userId != null ? 'IN_USE' : 'IN_STORAGE',
+    );
 
-      // Create updated asset - when unassigning, userId is null so clear everything
-      final updatedAsset = asset.copyWith(
-        inUseBy: userId,
-        assignedToName: userName, // This will be null when unassigning
-        assignedToEmail: userEmail, // This will be null when unassigning
-        status: userId != null ? 'IN_USE' : 'IN_STORAGE',
-      );
+    _assets[assetIndex] = updatedAsset;
 
-      _assets[assetIndex] = updatedAsset;
+    if (_selectedAsset?.id == assetId) {
+      _selectedAsset = updatedAsset;
+    }
 
-      // Also update the selected asset if it's the same one
-      if (_selectedAsset?.id == assetId) {
-        _selectedAsset = updatedAsset;
-      }
-
-      notifyListeners();
-
-      if (userId != null) {
-        print('✅ Local asset updated with user: $userName ($userEmail)');
-      } else {
-        print('✅ Local asset updated - unassigned (cleared user details)');
-      }
+    notifyListeners();
+    
+    if (userId != null) {
+      print('✅ Local asset updated with user: $userName ($userEmail)');
+    } else {
+      print('✅ Local asset updated - unassigned');
     }
   }
+}
 
 // ========== END ASSIGNMENT METHODS ==========
-
-// The rest of your asset provider methods (clearError, clearSelectedAsset, etc.) continue below...
 
   // Clear error
   void clearError() {

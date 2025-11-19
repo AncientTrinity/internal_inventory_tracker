@@ -158,45 +158,50 @@ class _AssetListScreenState extends State<AssetListScreen> {
     );
   }
 
-  void _showBulkAssignDialog() {
-    if (_selectedAssetIds.isEmpty) return;
+// In lib/screens/assets/asset_list_screen.dart - Bulk assignment methods
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Assign Assets'),
-        content: Text(
-          'Assign ${_selectedAssetIds.length} selected assets to a user?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showUserSelectionForBulkAssignment();
-            },
-            child: const Text('Select User'),
-          ),
-        ],
+// Show bulk assignment dialog
+void _showBulkAssignDialog() {
+  if (_selectedAssetIds.isEmpty) return;
+
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Assign Assets'),
+      content: Text(
+        'Assign ${_selectedAssetIds.length} selected assets to a user?',
       ),
-    );
-  }
-
-  void _showUserSelectionForBulkAssignment() async {
-    final selectedUser = await Navigator.of(context).push<User>(
-      MaterialPageRoute(
-        builder: (context) => UserSelectionScreen(
-          onUserSelected: (user) => _bulkAssignAssetsToUser(user),
-          currentAssignedUserId: null, // Not relevant for bulk assignment
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
         ),
-      ),
-    );
-  }
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _showUserSelectionForBulkAssignment();
+          },
+          child: const Text('Select User'),
+        ),
+      ],
+    ),
+  );
+}
 
- Future<void> _bulkAssignAssetsToUser(User user) async {
+// Show user selection for bulk assignment
+void _showUserSelectionForBulkAssignment() async {
+  await Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => UserSelectionScreen(
+        onUserSelected: (user) => _bulkAssignAssetsToUser(user),
+        currentAssignedUserId: null,
+      ),
+    ),
+  );
+}
+
+// Bulk assign assets to user
+Future<void> _bulkAssignAssetsToUser(User user) async {
   try {
     final assetProvider = Provider.of<AssetProvider>(context, listen: false);
     
@@ -204,23 +209,21 @@ class _AssetListScreenState extends State<AssetListScreen> {
     
     await assetProvider.bulkAssignAssets(_selectedAssetIds.toList(), user.id, user.fullName, user.email);
     
+    // Use a post-frame callback to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Clear selection and exit selection mode
+      setState(() {
+        _selectedAssetIds.clear();
+        _isSelectionMode = false;
+      });
+    });
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${_selectedAssetIds.length} assets assigned to ${user.fullName}'),
         backgroundColor: Colors.green,
       ),
     );
-    
-    // Clear selection and exit selection mode
-    setState(() {
-      _selectedAssetIds.clear();
-      _isSelectionMode = false;
-    });
-    
-    // REMOVE the refresh - we updated locally
-    // if (authProvider.authData != null) {
-    //   await assetProvider.refreshAssets(authProvider.authData!.token);
-    // }
     
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -232,74 +235,71 @@ class _AssetListScreenState extends State<AssetListScreen> {
   }
 }
 
-// Add this method to asset_list_screen.dart if you want bulk unassign
+// Show bulk unassign dialog
+void _showBulkUnassignDialog() {
+  if (_selectedAssetIds.isEmpty) return;
 
-  void _showBulkUnassignDialog() {
-    if (_selectedAssetIds.isEmpty) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Unassign Assets'),
-        content: Text(
-          'Unassign ${_selectedAssetIds.length} selected assets?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _bulkUnassignAssets();
-            },
-            child: const Text(
-              'Unassign',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Unassign Assets'),
+      content: Text(
+        'Unassign ${_selectedAssetIds.length} selected assets?',
       ),
-    );
-  }
-
-  Future<void> _bulkUnassignAssets() async {
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-
-      // Since we don't have a bulk unassign endpoint, unassign individually
-      for (final assetId in _selectedAssetIds) {
-        await assetProvider.unassignAsset(assetId);
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${_selectedAssetIds.length} assets unassigned'),
-          backgroundColor: Colors.green,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
         ),
-      );
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _bulkUnassignAssets();
+          },
+          child: const Text(
+            'Unassign',
+            style: TextStyle(color: Colors.red),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
-      // Clear selection and exit selection mode
+// Bulk unassign assets
+Future<void> _bulkUnassignAssets() async {
+  try {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    
+    // Unassign each asset individually (since no bulk unassign endpoint)
+    for (final assetId in _selectedAssetIds) {
+      await assetProvider.unassignAsset(assetId);
+    }
+    
+    // Use post-frame callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _selectedAssetIds.clear();
         _isSelectionMode = false;
       });
-
-      // Refresh the assets list
-      if (authProvider.authData != null) {
-        await assetProvider.refreshAssets(authProvider.authData!.token);
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to unassign assets: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${_selectedAssetIds.length} assets unassigned'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to unassign assets: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
   Future<void> _deleteSelectedAssets() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -348,18 +348,12 @@ class _AssetListScreenState extends State<AssetListScreen> {
               onPressed: _selectAllAssets,
               tooltip: 'Select All',
             ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed:
-                _selectedAssetIds.isNotEmpty ? _showBulkDeleteDialog : null,
-            tooltip: 'Delete Selected',
-          ),
-          IconButton(
-            icon: const Icon(Icons.assignment_outlined),
-            onPressed:
-                _selectedAssetIds.isNotEmpty ? _showBulkAssignDialog : null,
-            tooltip: 'Assign Selected',
-          ),
+          if (user?.isAdmin == true)
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          onPressed: _selectedAssetIds.isNotEmpty ? _showBulkDeleteDialog : null,
+          tooltip: 'Delete Selected',
+        ),
           IconButton(
             icon: const Icon(Icons.assignment_outlined),
             onPressed:

@@ -17,6 +17,7 @@ import '../../widgets/common/app_drawer.dart';
 import 'asset_form_screen.dart';
 import 'service_log_form_screen.dart';
 import 'service_log_list_screen.dart';
+import 'schedule_service_screen.dart';
 import 'user_selection_screen.dart';
 
 class AssetDetailScreen extends StatefulWidget {
@@ -116,83 +117,87 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  void _showUserSelection() async {
+ // In lib/screens/assets/asset_detail_screen.dart - Individual assignment methods
+
+// Show user selection for individual assignment
+void _showUserSelection() async {
+  final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+  final asset = assetProvider.selectedAsset;
+  
+  if (asset == null) return;
+
+  await Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => UserSelectionScreen(
+        onUserSelected: (user) => _assignAssetToUser(user),
+        currentAssignedUserId: asset.inUseBy,
+      ),
+    ),
+  );
+}
+
+// Individual asset assignment
+Future<void> _assignAssetToUser(User user) async {
+  try {
     final assetProvider = Provider.of<AssetProvider>(context, listen: false);
     final asset = assetProvider.selectedAsset;
-
+    
     if (asset == null) return;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => UserSelectionScreen(
-          onUserSelected: (user) => _assignAssetToUser(user),
-          currentAssignedUserId: asset.inUseBy,
-        ),
+    print('🎯 Assigning Asset to User:');
+    print('🎯 Asset: ${asset.internalId}');
+    print('🎯 User: ${user.fullName} (${user.email})');
+
+    await assetProvider.assignAsset(asset.id, user.id, user.fullName, user.email);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Asset assigned to ${user.fullName}'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to assign asset: $e'),
+        backgroundColor: Colors.red,
       ),
     );
   }
+}
 
-  Future<void> _assignAssetToUser(User user) async {
-    try {
-      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-      final asset = assetProvider.selectedAsset;
+// Individual asset unassignment
+Future<void> _unassignAsset() async {
+  try {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    final asset = assetProvider.selectedAsset;
+    
+    if (asset == null) return;
 
-      if (asset == null) return;
-
-      print('🎯 Assigning Asset to User:');
-      print('🎯 Asset: ${asset.internalId}');
-      print('🎯 User: ${user.fullName} (${user.email})');
-
-      await assetProvider.assignAsset(
-          asset.id, user.id, user.fullName, user.email);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Asset assigned to ${user.fullName}'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      //await _refreshAsset();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to assign asset: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    await assetProvider.unassignAsset(asset.id);
+    
+    // Force UI update
+    if (mounted) {
+      setState(() {});
     }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Asset unassigned successfully'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to unassign asset: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
-
-  Future<void> _unassignAsset() async {
-    try {
-      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-      final asset = assetProvider.selectedAsset;
-
-      if (asset == null) return;
-
-      await assetProvider.unassignAsset(asset.id);
-
-      // Force a UI update by triggering a rebuild
-      if (mounted) {
-        setState(() {});
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Asset unassigned successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to unassign asset: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
+}
 
   void _showDeleteDialog(Asset asset) {
     showDialog(
@@ -221,6 +226,74 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
       ),
     );
   }
+
+  // Add this method to your _AssetDetailScreenState class:
+  void _quickMarkAsServiced(Asset asset) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = authProvider.currentUser;
+
+    if (currentUser == null) return;
+
+    final serviceLog = ServiceLog(
+      id: 0,
+      assetId: asset.id,
+      serviceType: 'PREVENTIVE_MAINTENANCE',
+      description: 'Quick service - marked as serviced',
+      serviceDate: DateTime.now(),
+      performedBy: currentUser.id,
+      cost: null,
+      notes: 'Asset marked as serviced via quick action',
+      nextServiceDate: DateTime.now().add(const Duration(days: 180)), // 6 months from now
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mark as Serviced'),
+        content: const Text('This will create a service log entry marking this asset as serviced. Continue?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final serviceLogProvider = Provider.of<ServiceLogProvider>(context, listen: false);
+                await serviceLogProvider.createServiceLog(
+                    serviceLog,
+                    authProvider.authData!.token
+                );
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Asset marked as serviced'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+
+                // Refresh the service logs
+                _loadServiceLogs();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to mark as serviced: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Mark as Serviced'),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Future<void> _deleteAsset() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -602,8 +675,13 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                           avatar: const Icon(Icons.schedule, size: 16),
                           label: const Text('Schedule Service'),
                           onPressed: () {
-                            _showNotImplementedSnackbar(
-                                'Service scheduling will be implemented next');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ScheduleServiceScreen(asset: asset),
+                              ),
+                            );
                           },
                         ),
                         if (asset.needsService)
@@ -613,8 +691,7 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
                             label: const Text('Mark as Serviced'),
                             backgroundColor: Colors.orange[100],
                             onPressed: () {
-                              _showNotImplementedSnackbar(
-                                  'Mark as serviced will be implemented next');
+                              _quickMarkAsServiced(asset);
                             },
                           ),
                         ActionChip(
@@ -734,75 +811,78 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
- // In lib/screens/assets/asset_detail_screen.dart, find the _buildServiceLogPreviewItem method:
-Widget _buildServiceLogPreviewItem(ServiceLog serviceLog) {
-  final dateFormat = DateFormat('MMM dd, yyyy');
-  
-  return Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      border: Border.all(color: Colors.grey[300]!),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: serviceLog.serviceTypeColor.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(6),
+  // In lib/screens/assets/asset_detail_screen.dart, find the _buildServiceLogPreviewItem method:
+  Widget _buildServiceLogPreviewItem(ServiceLog serviceLog) {
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: serviceLog.serviceTypeColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              _getServiceTypeIcon(serviceLog.serviceType),
+              color: serviceLog.serviceTypeColor,
+              size: 20,
+            ),
           ),
-          child: Icon(
-            _getServiceTypeIcon(serviceLog.serviceType),
-            color: serviceLog.serviceTypeColor,
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                serviceLog.serviceTypeDisplay,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  serviceLog.serviceTypeDisplay,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                serviceLog.description, // This might be the problem line
-                style: const TextStyle(fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.person, size: 12, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    serviceLog.performedBy.toString(), // Ensure this is string
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                  const Spacer(),
-                  Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    dateFormat.format(serviceLog.serviceDate),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  serviceLog.description, // This might be the problem line
+                  style: const TextStyle(fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.person, size: 12, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      serviceLog.performedBy.toString(),
+                      // Ensure this is string
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    const Spacer(),
+                    Icon(Icons.calendar_today,
+                        size: 12, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      dateFormat.format(serviceLog.serviceDate),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
+
 // Add this helper method to the asset detail screen class
   IconData _getServiceTypeIcon(String serviceType) {
     switch (serviceType) {
