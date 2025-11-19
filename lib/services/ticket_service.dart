@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/ticket.dart';
+import '../models/ticket_comment.dart'; // ADD THIS IMPORT
 import '../utils/api_config.dart';
 
 class TicketService {
@@ -132,7 +133,7 @@ class TicketService {
     }
   }
 
-  // Update ticket - ADD THIS MISSING METHOD
+  // Update ticket
   Future<Ticket> updateTicket(Ticket ticket, String token) async {
     try {
       print('📡 Updating ticket ${ticket.id}');
@@ -230,6 +231,34 @@ class TicketService {
     }
   }
 
+Future<Ticket> reassignTicket(int ticketId, int? assigneeId, String token) async {
+  try {
+    print('📡 Reassigning ticket $ticketId to user $assigneeId');
+    
+    final response = await http.post(
+      Uri.parse('${ApiConfig.apiBaseUrl}/tickets/$ticketId/reassign'),
+      headers: {
+        ...ApiConfig.headers,
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode({
+        'assigned_to': assigneeId,
+      }),
+    );
+
+    final responseData = _handleResponse(response);
+    
+    if (responseData is Map) {
+      return Ticket.fromJson(Map<String, dynamic>.from(responseData));
+    } else {
+      throw Exception('Unexpected response format: $responseData');
+    }
+  } catch (e) {
+    print('❌ Failed to reassign ticket: $e');
+    throw Exception('Failed to reassign ticket: $e');
+  }
+}
+
   // Get ticket comments
   Future<List<TicketComment>> getComments(int ticketId, String token) async {
     try {
@@ -245,6 +274,12 @@ class TicketService {
 
       final responseData = _handleResponse(response);
       
+      // Handle null response
+      if (responseData == null) {
+        print('📦 No comments found, returning empty list');
+        return [];
+      }
+      
       List<dynamic> commentsList;
       
       if (responseData is List) {
@@ -256,12 +291,27 @@ class TicketService {
       }
       
       print('📦 Parsed ${commentsList.length} comments');
-      return commentsList.map<TicketComment>((comment) {
-        return TicketComment.fromJson(Map<String, dynamic>.from(comment));
-      }).toList();
+      
+      // Safely parse comments, skip any that fail
+      final List<TicketComment> comments = [];
+      for (final commentData in commentsList) {
+        try {
+          if (commentData is Map<String, dynamic>) {
+            comments.add(TicketComment.fromJson(commentData));
+          } else if (commentData is Map) {
+            comments.add(TicketComment.fromJson(Map<String, dynamic>.from(commentData)));
+          }
+        } catch (e) {
+          print('⚠️ Failed to parse comment: $e, data: $commentData');
+          // Skip invalid comments but continue processing others
+        }
+      }
+      
+      return comments;
     } catch (e) {
       print('❌ Failed to load comments: $e');
-      throw Exception('Failed to load comments: $e');
+      // Return empty list instead of throwing for empty comments
+      return [];
     }
   }
 
@@ -282,7 +332,18 @@ class TicketService {
       final responseData = _handleResponse(response);
       
       if (responseData is Map) {
-        return TicketComment.fromJson(Map<String, dynamic>.from(responseData));
+        // Map the API response fields to your model
+        final mappedData = Map<String, dynamic>.from(responseData);
+        return TicketComment(
+          id: mappedData['id'] ?? 0,
+          ticketId: mappedData['ticket_id'] ?? comment.ticketId,
+          userId: mappedData['author_id'] ?? comment.userId, // API uses 'author_id'
+          comment: mappedData['comment'] ?? '',
+          isInternal: mappedData['is_internal'] ?? false,
+          createdAt: DateTime.parse(mappedData['created_at']),
+          userName: comment.userName, // Keep original user info
+          userEmail: comment.userEmail,
+        );
       } else {
         throw Exception('Unexpected response format: $responseData');
       }

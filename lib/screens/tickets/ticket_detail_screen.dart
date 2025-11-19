@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/ticket.dart';
-import '../../models/ticket_comment.dart';
+import '../../models/ticket_comment.dart'; // ADD THIS IMPORT
 import '../../providers/ticket_provider.dart';
 import '../../providers/auth_provider.dart';
 import 'ticket_form_screen.dart';
+import 'user_selection_dialog.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final int ticketId;
@@ -182,6 +183,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           comment: _commentController.text.trim(),
           isInternal: _isInternalComment,
           createdAt: DateTime.now(),
+          userName: currentUser.fullName,
+          userEmail: currentUser.email,
         );
 
         await ticketProvider.createComment(comment, authProvider.authData!.token);
@@ -414,54 +417,114 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     );
   }
 
-  void _showActionMenu() {
-    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
-    final ticket = ticketProvider.selectedTicket;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final user = authProvider.currentUser;
+  Future<void> _showReassignmentDialog() async {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+  final ticket = ticketProvider.selectedTicket;
 
-    showModalBottomSheet(
+  if (ticket == null || authProvider.authData == null) return;
+
+  try {
+    // Load available users if not already loaded
+    if (ticketProvider.availableUsers.isEmpty) {
+      await ticketProvider.loadAvailableUsers(authProvider.authData!.token);
+    }
+
+    final selectedUserId = await showDialog<int?>(
       context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Refresh'),
-            onTap: () {
-              Navigator.pop(context);
-              _refreshTicket();
-            },
+      builder: (context) => UserSelectionDialog(
+        users: ticketProvider.availableUsers,
+        title: 'Assign Ticket',
+        currentAssigneeId: ticket.assignedTo,
+      ),
+    );
+
+    if (selectedUserId != null) {
+      await ticketProvider.reassignTicket(
+        ticket.id,
+        selectedUserId,
+        authProvider.authData!.token,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(selectedUserId == null 
+            ? 'Ticket unassigned successfully' 
+            : 'Ticket assigned successfully'
           ),
-          if (user?.isAdmin == true || user?.isITStaff == true)
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit Ticket'),
-              onTap: () {
-                Navigator.pop(context);
-                if (ticket != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => TicketFormScreen(ticket: ticket),
-                    ),
-                  );
-                }
-              },
-            ),
-          if (user?.isAdmin == true || user?.isITStaff == true)
-            ListTile(
-              leading: const Icon(Icons.update),
-              title: const Text('Update Status'),
-              onTap: () {
-                Navigator.pop(context);
-                _showStatusUpdateDialog();
-              },
-            ),
-        ],
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to assign ticket: $e'),
+        backgroundColor: Colors.red,
       ),
     );
   }
+}
+
+// Update the action menu to include reassignment
+void _showActionMenu() {
+  final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+  final ticket = ticketProvider.selectedTicket;
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final user = authProvider.currentUser;
+
+  showModalBottomSheet(
+    context: context,
+    builder: (context) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.refresh),
+          title: const Text('Refresh'),
+          onTap: () {
+            Navigator.pop(context);
+            _refreshTicket();
+          },
+        ),
+        if (user?.isAdmin == true || user?.isITStaff == true) ...[
+          ListTile(
+            leading: const Icon(Icons.edit),
+            title: const Text('Edit Ticket'),
+            onTap: () {
+              Navigator.pop(context);
+              if (ticket != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TicketFormScreen(ticket: ticket),
+                  ),
+                );
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.assignment_ind),
+            title: const Text('Assign/Reassign'),
+            onTap: () {
+              Navigator.pop(context);
+              _showReassignmentDialog();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.update),
+            title: const Text('Update Status'),
+            onTap: () {
+              Navigator.pop(context);
+              _showStatusUpdateDialog();
+            },
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+
 
   @override
   Widget build(BuildContext context) {

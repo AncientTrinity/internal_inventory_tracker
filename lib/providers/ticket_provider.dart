@@ -1,7 +1,10 @@
 // filename: lib/providers/ticket_provider.dart
 import 'package:flutter/foundation.dart';
 import '../models/ticket.dart';
+import '../models/ticket_comment.dart'; // ADD THIS IMPORT
 import '../services/ticket_service.dart';
+import '../services/user_service.dart';
+import '../models/user.dart';
 
 class TicketProvider with ChangeNotifier {
   final TicketService _ticketService = TicketService();
@@ -18,28 +21,40 @@ class TicketProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  // Helper method to safely notify listeners
+  void _safeNotifyListeners() {
+    if (!_isLoading) {
+      Future.microtask(() => notifyListeners());
+    }
+  }
+
   // Load all tickets
   Future<void> loadTickets(String token) async {
+    if (_isLoading) return;
+    
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       _tickets = await _ticketService.getTickets(token);
       _error = null;
     } catch (e) {
       _error = e.toString();
+      print('❌ Error loading tickets: $e');
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
   // Load ticket by ID
   Future<void> loadTicketById(int ticketId, String token) async {
+    if (_isLoading) return;
+    
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       _selectedTicket = await _ticketService.getTicket(ticketId, token);
@@ -47,17 +62,31 @@ class TicketProvider with ChangeNotifier {
       _error = null;
     } catch (e) {
       _error = e.toString();
+      print('❌ Error loading ticket $ticketId: $e');
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
+    }
+  }
+
+  // Load comments for selected ticket
+  Future<void> loadComments(int ticketId, String token) async {
+    try {
+      _selectedTicketComments = await _ticketService.getComments(ticketId, token);
+      _safeNotifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      print('❌ Error loading comments: $e');
     }
   }
 
   // Create new ticket
   Future<void> createTicket(Ticket ticket, String token) async {
+    if (_isLoading) return;
+    
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       final newTicket = await _ticketService.createTicket(ticket, token);
@@ -68,15 +97,17 @@ class TicketProvider with ChangeNotifier {
       rethrow;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
   // Update ticket
   Future<void> updateTicket(Ticket ticket, String token) async {
+    if (_isLoading) return;
+    
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       final updatedTicket = await _ticketService.updateTicket(ticket, token);
@@ -93,15 +124,17 @@ class TicketProvider with ChangeNotifier {
       rethrow;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
   // Update ticket status
   Future<void> updateTicketStatus(int ticketId, String status, double completion, int? assignedTo, String token) async {
+    if (_isLoading) return;
+    
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    _safeNotifyListeners();
 
     try {
       final updatedTicket = await _ticketService.updateTicketStatus(ticketId, status, completion, assignedTo, token);
@@ -118,48 +151,116 @@ class TicketProvider with ChangeNotifier {
       rethrow;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
   // Delete ticket
   Future<void> deleteTicket(int ticketId, String token) async {
+    if (_isLoading) return;
+    
+    _isLoading = true;
+    _error = null;
+    _safeNotifyListeners();
+
+    try {
+      await _ticketService.deleteTicket(ticketId, token);
+      _tickets.removeWhere((ticket) => ticket.id == ticketId);
+      if (_selectedTicket?.id == ticketId) {
+        _selectedTicket = null;
+      }
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      _safeNotifyListeners();
+    }
+  }
+
+
+
+  final UserService _userService = UserService();
+List<User> _availableUsers = [];
+
+List<User> get availableUsers => _availableUsers;
+
+// Load available users for assignment
+Future<void> loadAvailableUsers(String token) async {
+  try {
+    _availableUsers = await _userService.getITStaff(token);
+    _safeNotifyListeners();
+  } catch (e) {
+    _error = e.toString();
+    print('❌ Error loading available users: $e');
+  }
+}
+
+// Reassign single ticket
+Future<void> reassignTicket(int ticketId, int? assigneeId, String token) async {
+  if (_isLoading) return;
+  
   _isLoading = true;
   _error = null;
-  notifyListeners();
+  _safeNotifyListeners();
 
   try {
-    await _ticketService.deleteTicket(ticketId, token); // FIXED: Changed from deleteServiceLog to deleteTicket
-    _tickets.removeWhere((ticket) => ticket.id == ticketId);
-    if (_selectedTicket?.id == ticketId) {
-      _selectedTicket = null;
+    final updatedTicket = await _ticketService.reassignTicket(ticketId, assigneeId, token);
+    
+    // Update in tickets list
+    final index = _tickets.indexWhere((t) => t.id == ticketId);
+    if (index != -1) {
+      _tickets[index] = updatedTicket;
     }
+    
+    // Update selected ticket if it's the same
+    if (_selectedTicket?.id == ticketId) {
+      _selectedTicket = updatedTicket;
+    }
+    
     _error = null;
   } catch (e) {
     _error = e.toString();
     rethrow;
   } finally {
     _isLoading = false;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 }
 
-  // Load comments for selected ticket
-  Future<void> loadComments(int ticketId, String token) async {
-    try {
-      _selectedTicketComments = await _ticketService.getComments(ticketId, token);
-    } catch (e) {
-      _error = e.toString();
+// Bulk reassign tickets
+Future<void> bulkReassignTickets(List<int> ticketIds, int? assigneeId, String token) async {
+  if (_isLoading) return;
+  
+  _isLoading = true;
+  _error = null;
+  _safeNotifyListeners();
+
+  try {
+    for (final ticketId in ticketIds) {
+      await _ticketService.reassignTicket(ticketId, assigneeId, token);
     }
-    notifyListeners();
+    
+    // Refresh tickets to get updated data
+    await loadTickets(token);
+    
+    _error = null;
+  } catch (e) {
+    _error = e.toString();
+    rethrow;
+  } finally {
+    _isLoading = false;
+    _safeNotifyListeners();
   }
+}
 
   // Create comment
   Future<void> createComment(TicketComment comment, String token) async {
     try {
       final newComment = await _ticketService.createComment(comment, token);
       _selectedTicketComments.add(newComment);
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _error = e.toString();
       rethrow;

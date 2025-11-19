@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
 import 'ticket_detail_screen.dart';
 import 'ticket_form_screen.dart';
+import 'user_selection_dialog.dart';
 
 class TicketListScreen extends StatefulWidget {
   const TicketListScreen({super.key});
@@ -49,38 +50,40 @@ class _TicketListScreenState extends State<TicketListScreen> {
     {'value': 'low', 'label': 'Low'},
   ];
 
-  @override
-  void initState() {
-    super.initState();
+@override
+void initState() {
+  super.initState();
+  // Use Future.microtask to load after build completes
+  Future.microtask(() {
     _loadTickets();
     _loadAvailableData();
-  }
+  });
+}
 
-  Future<void> _loadTickets() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+Future<void> _loadTickets() async {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
 
-    if (authProvider.authData != null) {
-      await ticketProvider.loadTickets(authProvider.authData!.token);
-    }
+  if (authProvider.authData != null) {
+    await ticketProvider.loadTickets(authProvider.authData!.token);
   }
+}
 
   Future<void> _loadAvailableData() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final assetProvider = Provider.of<AssetProvider>(context, listen: false);
 
-    if (authProvider.authData != null) {
-      // Load assets for filtering
-      await assetProvider.loadAssets(authProvider.authData!.token);
-      setState(() {
-        _availableAssets = assetProvider.assets;
-      });
+  if (authProvider.authData != null) {
+    // Load assets for filtering
+    await assetProvider.loadAssets(authProvider.authData!.token);
+    setState(() {
+      _availableAssets = assetProvider.assets;
+    });
 
-      // In a real app, you'd load users here
-      // For now, we'll use mock users or load from your user provider
-      _availableUsers = [];
-    }
+    // In a real app, you'd load users here for assignment
+    _availableUsers = [];
   }
+}
 
   Future<void> _refreshTickets() async {
     await _loadTickets();
@@ -633,21 +636,59 @@ class _TicketListScreenState extends State<TicketListScreen> {
     }
   }
 
-  void _showBulkAssignmentDialog() {
-    showDialog(
+void _showBulkAssignmentDialog() async {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+
+  if (authProvider.authData == null) return;
+
+  try {
+    // Load available users if not already loaded
+    if (ticketProvider.availableUsers.isEmpty) {
+      await ticketProvider.loadAvailableUsers(authProvider.authData!.token);
+    }
+
+    final selectedUserId = await showDialog<int?>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Assign Tickets'),
-        content: const Text('Bulk assignment feature will be implemented in the next phase.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder: (context) => UserSelectionDialog(
+        users: ticketProvider.availableUsers,
+        title: 'Assign ${_selectedTickets.length} Tickets',
+        currentAssigneeId: null,
+      ),
+    );
+
+    if (selectedUserId != null) {
+      final ticketIds = _selectedTickets.map((t) => t.id).toList();
+      await ticketProvider.bulkReassignTickets(
+        ticketIds,
+        selectedUserId,
+        authProvider.authData!.token,
+      );
+
+      setState(() {
+        _isSelectionMode = false;
+        _selectedTickets.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(selectedUserId == null 
+            ? '${ticketIds.length} tickets unassigned successfully' 
+            : '${ticketIds.length} tickets assigned successfully'
           ),
-        ],
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to assign tickets: $e'),
+        backgroundColor: Colors.red,
       ),
     );
   }
+}
 
   void _showBulkStatusDialog() {
     showDialog(
