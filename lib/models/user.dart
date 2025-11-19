@@ -43,4 +43,12 @@ class User {
   bool get isStaff => roleId == 3;
   bool get isAgent => roleId == 4;
   bool get isViewer => roleId == 5;
+
+  //Permission checks
+  bool get canCreateTickets => isAdmin || isITStaff || isStaff;
+  bool get canAssignTickets => isAdmin || isITStaff;
+  bool get canViewAllTickets => isAdmin || isITStaff || isStaff;
+  bool get canEditTickets => isAdmin || isITStaff;
+  bool get canDeleteTickets => isAdmin || isITStaff;
+
 }

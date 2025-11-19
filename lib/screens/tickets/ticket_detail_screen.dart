@@ -467,63 +467,78 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 }
 
 // Update the action menu to include reassignment
-void _showActionMenu() {
-  final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
-  final ticket = ticketProvider.selectedTicket;
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final user = authProvider.currentUser;
+// Update the _showActionMenu method:
+  void _showActionMenu() {
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+    final ticket = ticketProvider.selectedTicket;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.currentUser;
 
-  showModalBottomSheet(
-    context: context,
-    builder: (context) => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ListTile(
-          leading: const Icon(Icons.refresh),
-          title: const Text('Refresh'),
-          onTap: () {
-            Navigator.pop(context);
-            _refreshTicket();
-          },
-        ),
-        if (user?.isAdmin == true || user?.isITStaff == true) ...[
+    // Check if user can perform actions on this ticket
+    final canEditTicket = user?.canEditTickets == true ||
+        (user?.isAgent == true && ticket?.createdBy == user?.id);
+
+    final canAssignTicket = user?.canAssignTickets == true;
+
+    final canUpdateStatus = user?.canEditTickets == true;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           ListTile(
-            leading: const Icon(Icons.edit),
-            title: const Text('Edit Ticket'),
+            leading: const Icon(Icons.refresh),
+            title: const Text('Refresh'),
             onTap: () {
               Navigator.pop(context);
-              if (ticket != null) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TicketFormScreen(ticket: ticket),
-                  ),
-                );
-              }
+              _refreshTicket();
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.assignment_ind),
-            title: const Text('Assign/Reassign'),
-            onTap: () {
-              Navigator.pop(context);
-              _showReassignmentDialog();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.update),
-            title: const Text('Update Status'),
-            onTap: () {
-              Navigator.pop(context);
-              _showStatusUpdateDialog();
-            },
-          ),
+
+          // Edit Ticket - Allow creators to edit their own tickets
+          if (canEditTicket == true)
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Edit Ticket'),
+              onTap: () {
+                Navigator.pop(context);
+                if (ticket != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TicketFormScreen(ticket: ticket),
+                    ),
+                  );
+                }
+              },
+            ),
+
+          // Assign/Reassign - Only for Admin/IT Staff
+          if (canAssignTicket == true)
+            ListTile(
+              leading: const Icon(Icons.assignment_ind),
+              title: const Text('Assign/Reassign'),
+              onTap: () {
+                Navigator.pop(context);
+                _showReassignmentDialog();
+              },
+            ),
+
+          // Update Status - Only for Admin/IT Staff
+          if (canUpdateStatus == true)
+            ListTile(
+              leading: const Icon(Icons.update),
+              title: const Text('Update Status'),
+              onTap: () {
+                Navigator.pop(context);
+                _showStatusUpdateDialog();
+              },
+            ),
         ],
-      ],
-    ),
-  );
-}
-
+      ),
+    );
+  }
 
 
   @override

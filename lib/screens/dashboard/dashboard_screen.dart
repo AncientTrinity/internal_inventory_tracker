@@ -2,10 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/ticket.dart';
+import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/ticket_provider.dart';
 import '../../widgets/common/app_drawer.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../models/asset.dart';
+import '../../screens/assets/asset_detail_screen.dart';
+import '../../screens/tickets/ticket_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,31 +27,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDashboardData() async {
-    final authProvider =
-        Provider.of<AuthProvider>(context, listen: false); // auth provider
-    final dashboardProvider = Provider.of<DashboardProvider>(context,
-        listen: false); // dashboard provider
-    final ticketProvider =
-        Provider.of<TicketProvider>(context, listen: false); // ticket provider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
 
     if (authProvider.authData != null) {
-      await dashboardProvider.loadDashboardData(authProvider.authData!.token);
-      await ticketProvider
-          .loadTickets(authProvider.authData!.token); // LOAD TICKETS
+      try {
+        // Pass current user to dashboard provider
+        await dashboardProvider.loadDashboardData(
+          authProvider.authData!.token,
+          authProvider.currentUser, // ADD THIS
+        );
+        await ticketProvider.loadTickets(authProvider.authData!.token);
+      } catch (e) {
+        print('Error loading dashboard data: $e');
+        // Don't show error to user for dashboard, just use empty data
+      }
     }
   }
 
   Future<void> _refreshData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final dashboardProvider =
-        Provider.of<DashboardProvider>(context, listen: false);
-    final ticketProvider =
-        Provider.of<TicketProvider>(context, listen: false); // ADD THIS
+    final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
 
     if (authProvider.authData != null) {
-      await dashboardProvider.refreshData(authProvider.authData!.token);
-      await ticketProvider
-          .loadTickets(authProvider.authData!.token); // ADD THIS
+      // Pass current user to dashboard provider
+      await dashboardProvider.refreshData(
+        authProvider.authData!.token,
+        authProvider.currentUser, // ADD THIS
+      );
+      await ticketProvider.loadTickets(authProvider.authData!.token);
     }
   }
 
@@ -54,6 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final dashboardProvider = Provider.of<DashboardProvider>(context);
+    final currentUser = authProvider.currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -73,50 +85,349 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: dashboardProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _refreshData,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Welcome Section
-                    _buildWelcomeSection(context, authProvider),
-
-                    const SizedBox(height: 20),
-
-                    // Quick Stats Section
-                    _buildStatsSection(context, dashboardProvider),
-
-                    const SizedBox(height: 20),
-
-                    // Ticket Stats Section -
-                    _buildTicketStats(),
-
-                    const SizedBox(height: 20),
-
-                    // Recent Activity Section
-                    _buildRecentActivitySection(context, dashboardProvider),
-
-                    const SizedBox(height: 20),
-
-                    // Assets Needing Service Section
-                    if (dashboardProvider.assetsNeedingService.isNotEmpty)
-                      _buildAssetsNeedingServiceSection(
-                          context, dashboardProvider),
-
-                    const SizedBox(height: 20),
-
-                    // Quick Actions Section
-                    if (authProvider.currentUser?.isAdmin == true ||
-                        authProvider.currentUser?.isITStaff == true)
-                      _buildQuickActionsSection(context, authProvider),
-                  ],
-                ),
-              ),
-            ),
+        onRefresh: _refreshData,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Show agent-specific dashboard or full dashboard based on role
+              if (currentUser?.isAgent == true)
+                _buildAgentDashboard(dashboardProvider, currentUser!)
+              else
+                _buildFullDashboard(context, dashboardProvider, authProvider),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
+  // Agent-Specific Dashboard
+  Widget _buildAgentDashboard(DashboardProvider dashboardProvider, User currentUser) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Welcome message for agent
+        _buildAgentWelcomeSection(currentUser),
+        const SizedBox(height: 20),
+
+        // Agent Statistics Cards
+        _buildAgentStatisticsSection(dashboardProvider),
+        const SizedBox(height: 20),
+
+        // Agent's Assets Section
+        if (dashboardProvider.agentAssets.isNotEmpty)
+          _buildAgentAssetsSection(dashboardProvider),
+
+        // Agent's Active Tickets Section
+        if (dashboardProvider.agentTickets.isNotEmpty)
+          _buildAgentTicketsSection(dashboardProvider),
+
+        // Empty state if no assets or tickets
+        if (dashboardProvider.agentAssets.isEmpty && dashboardProvider.agentTickets.isEmpty)
+          _buildAgentEmptyState(),
+        
+      ],
+    );
+  }
+
+  // Full Dashboard for Admin/IT/Staff
+  Widget _buildFullDashboard(BuildContext context, DashboardProvider dashboardProvider, AuthProvider authProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Welcome Section
+        _buildWelcomeSection(context, authProvider),
+        const SizedBox(height: 20),
+
+        // Quick Stats Section
+        _buildStatsSection(context, dashboardProvider),
+        const SizedBox(height: 20),
+
+        // Ticket Stats Section
+        _buildTicketStats(),
+        const SizedBox(height: 20),
+
+        // Recent Activity Section
+        _buildRecentActivitySection(context, dashboardProvider),
+        const SizedBox(height: 20),
+
+        // Assets Needing Service Section
+        if (dashboardProvider.assetsNeedingService.isNotEmpty)
+          _buildAssetsNeedingServiceSection(context, dashboardProvider),
+
+        const SizedBox(height: 20),
+
+        // Quick Actions Section
+        if (authProvider.currentUser?.isAdmin == true ||
+            authProvider.currentUser?.isITStaff == true)
+          _buildQuickActionsSection(context, authProvider),
+      ],
+    );
+  }
+
+  // ========== AGENT-SPECIFIC WIDGETS ==========
+
+  Widget _buildAgentWelcomeSection(User currentUser) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.blue,
+              child: Text(
+                currentUser.fullName[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome, ${currentUser.fullName}!',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Here\'s your equipment and support requests',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAgentStatisticsSection(DashboardProvider dashboardProvider) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            context,
+            title: 'My Assets',
+            value: dashboardProvider.agentTotalAssets.toString(),
+            subtitle: 'Assigned to you',
+            icon: Icons.computer,
+            color: Colors.blue,
+            onTap: () {
+              Navigator.pushNamed(context, '/my-assets');
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            context,
+            title: 'Active Tickets',
+            value: dashboardProvider.agentActiveTickets.toString(),
+            subtitle: 'Requiring attention',
+            icon: Icons.confirmation_number,
+            color: Colors.orange,
+            onTap: () {
+              Navigator.pushNamed(context, '/tickets');
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAgentAssetsSection(DashboardProvider dashboardProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'My Assigned Assets',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...dashboardProvider.agentAssets.take(3).map((asset) =>
+            _buildAssetListItem(asset)
+        ).toList(),
+        if (dashboardProvider.agentAssets.length > 3)
+          TextButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/my-assets');
+            },
+            child: const Text('View All Assets'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAssetListItem(Asset asset) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(
+          _getAssetTypeIcon(asset.assetType),
+          color: asset.statusColor,
+        ),
+        title: Text(asset.internalId),
+        subtitle: Text('${asset.manufacturer} ${asset.model} • ${asset.statusDisplay}'),
+        trailing: asset.needsService
+            ? const Icon(Icons.warning, color: Colors.orange)
+            : null,
+        onTap: () {
+          // Navigate to asset detail
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AssetDetailScreen(assetId: asset.id),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAgentTicketsSection(DashboardProvider dashboardProvider) {
+    final activeTickets = dashboardProvider.agentTickets
+        .where((ticket) => ticket.isOpen || ticket.isReceived || ticket.isInProgress)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'My Active Tickets',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (activeTickets.isEmpty)
+          const Text(
+            'No active tickets',
+            style: TextStyle(color: Colors.grey),
+          )
+        else
+          ...activeTickets.take(3).map((ticket) =>
+              _buildTicketListItem(ticket)
+          ).toList(),
+        if (dashboardProvider.agentTickets.length > 3)
+          TextButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/tickets');
+            },
+            child: const Text('View All Tickets'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTicketListItem(Ticket ticket) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: ticket.statusColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            _getTicketTypeIcon(ticket.type),
+            color: ticket.statusColor,
+          ),
+        ),
+        title: Text(ticket.title),
+        subtitle: Text('${ticket.statusDisplay} • ${ticket.priorityDisplay}'),
+        trailing: Text(
+          ticket.completion.toInt().toString() + '%',
+          style: TextStyle(
+            color: ticket.statusColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TicketDetailScreen(ticketId: ticket.id),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAgentEmptyState() {
+    return Center(
+      child: Column(
+        children: [
+          Icon(
+            Icons.devices_other,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No Assets Assigned',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'You don\'t have any assets assigned to you yet.\nContact your Team Lead or IT department.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========== HELPER METHODS ==========
+
+  IconData _getAssetTypeIcon(String assetType) {
+    switch (assetType) {
+      case 'PC': return Icons.computer;
+      case 'MONITOR': return Icons.monitor;
+      case 'KEYBOARD': return Icons.keyboard;
+      case 'MOUSE': return Icons.mouse;
+      case 'HEADSET': return Icons.headset;
+      case 'UPS': return Icons.power;
+      default: return Icons.devices_other;
+    }
+  }
+
+  IconData _getTicketTypeIcon(String type) {
+    switch (type) {
+      case 'it_help': return Icons.help;
+      case 'activation': return Icons.play_arrow;
+      case 'deactivation': return Icons.stop;
+      case 'transition': return Icons.swap_horiz;
+      default: return Icons.confirmation_number;
+    }
+  }
   // Welcome Section
   Widget _buildWelcomeSection(BuildContext context, AuthProvider authProvider) {
     return Card(
@@ -240,6 +551,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       BuildContext context, DashboardProvider dashboardProvider) {
     final recentTickets = dashboardProvider.recentTickets.take(3).toList();
     final recentAssets = dashboardProvider.recentAssets.take(2).toList();
+    final hasActivity = recentTickets.isNotEmpty || recentAssets.isNotEmpty;
 
     return Card(
       elevation: 2,
@@ -261,39 +573,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                 ),
+                const Spacer(),
+                if (!hasActivity)
+                  Text(
+                    'No recent activity',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 12,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 16),
-            if (recentTickets.isNotEmpty) ...[
-              ...recentTickets.map((ticket) => _buildActivityItem(
-                    'New Ticket: ${ticket.title}',
-                    'Ticket #${ticket.id}', // Use id instead of ticketNum
-                    Icons.confirmation_number,
-                    _getTicketStatusColor(ticket.status),
-                  )),
-              const SizedBox(height: 8),
+            if (hasActivity) ...[
+              if (recentTickets.isNotEmpty) ...[
+                ...recentTickets.map((ticket) => _buildActivityItem(
+                      '${ticket.statusDisplay}: ${ticket.title}',
+                      'Priority: ${ticket.priorityDisplay}',
+                      Icons.confirmation_number,
+                      _getTicketStatusColor(ticket.status),
+                    )),
+                if (recentAssets.isNotEmpty) const SizedBox(height: 8),
+              ],
+              if (recentAssets.isNotEmpty) ...[
+                ...recentAssets.map((asset) => _buildActivityItem(
+                      'Asset: ${asset.internalId}',
+                      '${asset.manufacturer} ${asset.model}',
+                      Icons.computer,
+                      Colors.blue,
+                    )),
+              ],
+            ] else ...[
+              _buildEmptyActivityItem(),
             ],
-            if (recentAssets.isNotEmpty) ...[
-              ...recentAssets.map((asset) => _buildActivityItem(
-                    'Asset Added: ${asset.internalId}',
-                    '${asset.manufacturer} ${asset.model}',
-                    Icons.computer,
-                    Colors.blue,
-                  )),
-              const SizedBox(height: 8),
-            ],
-            if (recentTickets.isEmpty && recentAssets.isEmpty)
-              _buildActivityItem(
-                'No recent activity',
-                'Activity will appear here',
-                Icons.info,
-                Colors.grey,
-              ),
           ],
         ),
       ),
     );
   }
+
+  // Add this helper method for empty state
+Widget _buildEmptyActivityItem() {
+  return Column(
+    children: [
+      Icon(Icons.inbox, size: 48, color: Colors.grey[300]),
+      const SizedBox(height: 8),
+      Text(
+        'No recent activity',
+        style: TextStyle(color: Colors.grey[500]),
+      ),
+      Text(
+        'Activity will appear here as it happens',
+        style: TextStyle(color: Colors.grey[400], fontSize: 12),
+      ),
+    ],
+  );
+}
 
   // Assets Needing Service Section
   Widget _buildAssetsNeedingServiceSection(
@@ -625,37 +960,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildTicketStats() {
     return Consumer<TicketProvider>(
       builder: (context, ticketProvider, child) {
+        final authProvider = Provider.of<AuthProvider>(context);
+        final currentUser = authProvider.currentUser;
+
+        // Get analytics based on user role
+        final analytics = ticketProvider.getTicketAnalytics();
+        final userTickets =
+            _getUserSpecificTickets(ticketProvider, currentUser);
+
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Ticket Overview',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatItem(
-                        'Open',
-                        ticketProvider.getTicketsByStatus('OPEN').length,
-                        Colors.orange),
-                    _buildStatItem(
-                        'In Progress',
-                        ticketProvider.getTicketsByStatus('IN_PROGRESS').length,
-                        Colors.purple),
-                    _buildStatItem(
-                        'Resolved',
-                        ticketProvider.getTicketsByStatus('RESOLVED').length,
-                        Colors.green),
+                    const Icon(Icons.confirmation_number, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Ticket Overview',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (currentUser?.canViewAllTickets == true)
+                      Text(
+                        '${analytics['resolution_rate']?.toStringAsFixed(1) ?? '0'}% Resolved',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                   ],
                 ),
+                const SizedBox(height: 16),
+
+                // Stats based on user role
+                if (currentUser?.canViewAllTickets == true)
+                  _buildAdminTicketStats(ticketProvider, analytics)
+                else
+                  _buildUserTicketStats(userTickets, currentUser),
+
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -670,6 +1018,105 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       },
     );
+  }
+
+// Helper method for admin/IT/staff view
+  Widget _buildAdminTicketStats(
+      TicketProvider ticketProvider, Map<String, dynamic> analytics) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem(
+                'Open',
+                ticketProvider.getTicketsByStatus('OPEN').length,
+                Colors.orange),
+            _buildStatItem(
+                'In Progress',
+                ticketProvider.getTicketsByStatus('IN_PROGRESS').length,
+                Colors.purple),
+            _buildStatItem(
+                'Resolved',
+                ticketProvider.getTicketsByStatus('RESOLVED').length,
+                Colors.green),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem(
+                'Critical',
+                ticketProvider.getTicketsByPriority('critical').length,
+                Colors.red),
+            _buildStatItem(
+                'High',
+                ticketProvider.getTicketsByPriority('high').length,
+                Colors.orange),
+            _buildStatItem('Total', ticketProvider.tickets.length, Colors.blue),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (analytics['avg_resolution_time'] > 0)
+          Text(
+            'Avg. Resolution: ${analytics['avg_resolution_time'].toStringAsFixed(1)} hours',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+      ],
+    );
+  }
+
+// Helper method for agent/viewer view
+  Widget _buildUserTicketStats(List<Ticket> userTickets, User? currentUser) {
+    final myOpenTickets = userTickets
+        .where((t) => t.isOpen || t.isReceived || t.isInProgress)
+        .length;
+    final myResolvedTickets =
+        userTickets.where((t) => t.isResolved || t.isClosed).length;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem('My Open', myOpenTickets, Colors.orange),
+            _buildStatItem('My Resolved', myResolvedTickets, Colors.green),
+            _buildStatItem('Total', userTickets.length, Colors.blue),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (currentUser?.isAgent == true)
+          Text(
+            'Tickets linked to your assets',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+      ],
+    );
+  }
+
+// Helper method to get user-specific tickets
+  List<Ticket> _getUserSpecificTickets(
+      TicketProvider ticketProvider, User? currentUser) {
+    if (currentUser == null) return [];
+
+    if (currentUser.canViewAllTickets) {
+      return ticketProvider.tickets;
+    } else if (currentUser.isAgent) {
+      return ticketProvider.tickets.where((ticket) {
+        final isCreatedByAgent = ticket.createdBy == currentUser.id;
+        // For now, return tickets created by agent until we implement asset linking
+        return isCreatedByAgent;
+      }).toList();
+    }
+
+    return [];
   }
 
   Widget _buildStatItem(String label, int count, Color color) {

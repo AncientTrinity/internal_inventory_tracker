@@ -11,6 +11,7 @@ import 'providers/ticket_provider.dart'; // ADD THIS IMPORT
 
 import 'screens/assets/asset_form_screen.dart';
 import 'screens/assets/asset_list_screen.dart';
+import 'screens/assets/my_assets_sceen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/placeholder/placeholder_screen.dart';
@@ -128,11 +129,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
                 title: 'My Tickets',
                 description: 'View and manage tickets assigned to you.',
               ),
-          '/my-assets': (context) => const PlaceholderScreen(
-                title: 'My Assets',
-                description: 'View assets assigned to you.',
-              ),
-
+          '/my-assets': (context) => const MyAssetsScreen(),
           // Viewer Routes
           '/view-assets': (context) => const PlaceholderScreen(
                 title: 'View Assets',

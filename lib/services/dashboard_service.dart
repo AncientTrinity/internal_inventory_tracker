@@ -80,23 +80,33 @@ class DashboardService {
 
   // Get recent tickets
   Future<List<Ticket>> getRecentTickets(String token) async {
-    final url = Uri.parse('$baseUrl/tickets?limit=5');
+  final url = Uri.parse('$baseUrl/tickets?limit=5');
 
-    final response = await http.get(
-      url,
-      headers: {
-        ...ApiConfig.headers,
-        'Authorization': 'Bearer $token',
-      },
-    );
+  final response = await http.get(
+    url,
+    headers: {
+      ...ApiConfig.headers,
+      'Authorization': 'Bearer $token',
+    },
+  );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonList = json.decode(response.body);
-      return jsonList.map((json) => Ticket.fromJson(json)).toList();
+  if (response.statusCode == 200) {
+    final dynamic responseBody = json.decode(response.body);
+    
+    List<dynamic> ticketsList;
+    if (responseBody is List) {
+      ticketsList = responseBody; // Raw array
+    } else if (responseBody is Map) {
+      ticketsList = responseBody['data'] ?? responseBody['tickets'] ?? [];
     } else {
-      throw Exception('Failed to load recent tickets: ${response.statusCode}');
+      ticketsList = [];
     }
+    
+    return ticketsList.map((json) => Ticket.fromJson(json)).toList();
+  } else {
+    throw Exception('Failed to load recent tickets: ${response.statusCode}');
   }
+}
 
   // Get assets needing service
   Future<List<Asset>> getAssetsNeedingService(String token) async {

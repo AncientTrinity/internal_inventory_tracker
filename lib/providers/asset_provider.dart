@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/asset.dart';
+import '../models/user.dart';
 import '../services/asset_service.dart';
 import '../services/secure_storage_service.dart';
 import '../utils/api_config.dart';
@@ -163,8 +164,6 @@ Future<void> loadAssets(String token, {AssetFilters? filters}) async {
   Future<void> _enhanceAssetWithUserDetails(Asset asset) async {
   try {
     if (asset.inUseBy != null) {
-      // We need access to auth provider to get user details
-      // For now, we'll use a direct API call or rely on the auth provider context
       final userDetails = await _getUserDetails(asset.inUseBy!);
       if (userDetails != null) {
         final updatedAsset = asset.copyWith(
@@ -172,7 +171,6 @@ Future<void> loadAssets(String token, {AssetFilters? filters}) async {
           assignedToEmail: userDetails['email'],
         );
         
-        // Update in local list
         final assetIndex = _assets.indexWhere((a) => a.id == asset.id);
         if (assetIndex != -1) {
           _assets[assetIndex] = updatedAsset;
@@ -184,6 +182,20 @@ Future<void> loadAssets(String token, {AssetFilters? filters}) async {
         
         notifyListeners();
         print('✅ Enhanced asset ${asset.internalId} with user: ${userDetails['name']}');
+      } else {
+        // If we can't get user details, at least mark it as assigned
+        final updatedAsset = asset.copyWith(
+          assignedToName: 'Assigned User', // Generic fallback
+          assignedToEmail: '',
+        );
+        
+        final assetIndex = _assets.indexWhere((a) => a.id == asset.id);
+        if (assetIndex != -1) {
+          _assets[assetIndex] = updatedAsset;
+        }
+        
+        notifyListeners();
+        print('⚠️ Asset ${asset.internalId} is assigned but user details unavailable');
       }
     }
   } catch (e) {
@@ -225,11 +237,21 @@ Future<void> _enhanceAssetsWithUserDetails() async {
         'name': userData['full_name'] ?? userData['username'] ?? 'Unknown User',
         'email': userData['email'] ?? '',
       };
+    } else if (response.statusCode == 403) {
+      // Permission denied - agent can't access user details
+      print('⚠️ Agent does not have permission to access user details for ID $userId');
+      return {
+        'name': 'Assigned User',
+        'email': '',
+      };
+    } else {
+      print('❌ Failed to get user details for ID $userId: ${response.statusCode}');
+      return null;
     }
   } catch (e) {
     print('❌ Failed to get user details for ID $userId: $e');
+    return null;
   }
-  return null;
 }
 
   // Refresh assets
@@ -539,6 +561,15 @@ void _updateLocalAssetWithUserDetails(int assetId, int? userId, String? userName
 }
 
 // ========== END ASSIGNMENT METHODS ==========
+
+  List<Asset> getAssetsAssignedToUser(int userId) {
+    return _assets.where((asset) => asset.inUseBy == userId).toList();
+  }
+
+  List<Asset> getMyAssets(User currentUser) {
+  return getAssetsAssignedToUser(currentUser.id);
+}
+
 
   // Clear error
   void clearError() {

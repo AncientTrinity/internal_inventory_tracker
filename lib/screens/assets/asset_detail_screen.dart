@@ -33,17 +33,17 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-bool _isInitialLoad = true;
+  bool _isInitialLoad = true;
 
-@override
-void initState() {
-  super.initState();
-  // Use WidgetsBinding to schedule the load after build
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _loadAssetDetails();
-    _loadServiceLogs();
-  });
-}
+  @override
+  void initState() {
+    super.initState();
+    // Use WidgetsBinding to schedule the load after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAssetDetails();
+      _loadServiceLogs();
+    });
+  }
 
   Future<void> _loadAssetDetails() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -93,6 +93,7 @@ void initState() {
                 );
               },
             ),
+          // Hide assign/unassign for Agents - only show for Admin/IT Staff
           if ((user?.isAdmin == true || user?.isITStaff == true) &&
               asset != null)
             ListTile(
@@ -123,87 +124,86 @@ void initState() {
     );
   }
 
- // In lib/screens/assets/asset_detail_screen.dart - Individual assignment methods
+  // In lib/screens/assets/asset_detail_screen.dart - Individual assignment methods
 
 // Show user selection for individual assignment
-void _showUserSelection() async {
-  final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-  final asset = assetProvider.selectedAsset;
-  
-  if (asset == null) return;
+  void _showUserSelection() async {
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    final asset = assetProvider.selectedAsset;
 
-  await Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (context) => UserSelectionScreen(
-        onUserSelected: (user) => _assignAssetToUser(user),
-        currentAssignedUserId: asset.inUseBy,
+    if (asset == null) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => UserSelectionScreen(
+          onUserSelected: (user) => _assignAssetToUser(user),
+          currentAssignedUserId: asset.inUseBy,
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
 // Individual asset assignment
-Future<void> _assignAssetToUser(User user) async {
-  try {
-    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-    final asset = assetProvider.selectedAsset;
-    
-    if (asset == null) return;
+  Future<void> _assignAssetToUser(User user) async {
+    try {
+      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+      final asset = assetProvider.selectedAsset;
 
-    print('🎯 Assigning Asset to User:');
-    print('🎯 Asset: ${asset.internalId}');
-    print('🎯 User: ${user.fullName} (${user.email})');
+      if (asset == null) return;
 
-    await assetProvider.assignAsset(asset.id, user.id, user.fullName, user.email);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Asset assigned to ${user.fullName}'),
-        backgroundColor: Colors.green,
-      ),
-    );
-    
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to assign asset: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
+      print('🎯 Assigning Asset to User:');
+      print('🎯 Asset: ${asset.internalId}');
+      print('🎯 User: ${user.fullName} (${user.email})');
+
+      await assetProvider.assignAsset(
+          asset.id, user.id, user.fullName, user.email);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Asset assigned to ${user.fullName}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to assign asset: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
-}
 
 // Individual asset unassignment
-Future<void> _unassignAsset() async {
-  try {
-    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
-    final asset = assetProvider.selectedAsset;
-    
-    if (asset == null) return;
+  Future<void> _unassignAsset() async {
+    try {
+      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+      final asset = assetProvider.selectedAsset;
 
-    await assetProvider.unassignAsset(asset.id);
-    
-    // Force UI update
-    if (mounted) {
-      setState(() {});
+      if (asset == null) return;
+
+      await assetProvider.unassignAsset(asset.id);
+
+      // Force UI update
+      if (mounted) {
+        setState(() {});
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Asset unassigned successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to unassign asset: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Asset unassigned successfully'),
-        backgroundColor: Colors.green,
-      ),
-    );
-    
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to unassign asset: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
 
   void _showDeleteDialog(Asset asset) {
     showDialog(
@@ -249,7 +249,8 @@ Future<void> _unassignAsset() async {
       performedBy: currentUser.id,
       cost: null,
       notes: 'Asset marked as serviced via quick action',
-      nextServiceDate: DateTime.now().add(const Duration(days: 180)), // 6 months from now
+      nextServiceDate: DateTime.now().add(const Duration(days: 180)),
+      // 6 months from now
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -259,7 +260,8 @@ Future<void> _unassignAsset() async {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Mark as Serviced'),
-        content: const Text('This will create a service log entry marking this asset as serviced. Continue?'),
+        content: const Text(
+            'This will create a service log entry marking this asset as serviced. Continue?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -269,11 +271,10 @@ Future<void> _unassignAsset() async {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                final serviceLogProvider = Provider.of<ServiceLogProvider>(context, listen: false);
+                final serviceLogProvider =
+                    Provider.of<ServiceLogProvider>(context, listen: false);
                 await serviceLogProvider.createServiceLog(
-                    serviceLog,
-                    authProvider.authData!.token
-                );
+                    serviceLog, authProvider.authData!.token);
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -299,7 +300,6 @@ Future<void> _unassignAsset() async {
       ),
     );
   }
-
 
   Future<void> _deleteAsset() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -524,62 +524,110 @@ Future<void> _unassignAsset() async {
   }
 
   Widget _buildAssignmentSection(Asset asset) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Assignment',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+  final authProvider = Provider.of<AuthProvider>(context);
+  final user = authProvider.currentUser;
+  
+  return Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Assignment',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 12),
-            if (asset.isAssigned)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Currently assigned to:',
-                    style: TextStyle(color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+          if (asset.isAssigned)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Currently assigned to:',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[100]!),
                   ),
-                  const SizedBox(height: 8),
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blue,
-                      child: Text(
-                        asset.assignedToName != null &&
-                                asset.assignedToName!.isNotEmpty
-                            ? asset.assignedToName![0].toUpperCase()
-                            : 'U',
-                        style: const TextStyle(color: Colors.white),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.blue,
+                        child: Text(
+                          asset.assignedToName != null &&
+                                  asset.assignedToName!.isNotEmpty
+                              ? asset.assignedToName![0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(color: Colors.white),
+                        ),
                       ),
-                    ),
-                    title: Text(
-                      asset.assignedToName ?? 'Unknown User',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(asset.assignedToEmail ?? 'No email'),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.person_remove, color: Colors.red),
-                      onPressed: _unassignAsset,
-                      tooltip: 'Unassign Asset',
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              asset.assignedToName ?? 'Unknown User',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            if (asset.assignedToEmail != null && asset.assignedToEmail!.isNotEmpty)
+                              Text(
+                                asset.assignedToEmail!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            // Show role indicator for Team Leads - we'll infer from context
+                            if (user?.isStaff == true)
+                              Text(
+                                'Team Member', // Generic label since we don't have role data
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Show unassign button only for Admin/IT Staff
+                      if (user?.isAdmin == true || user?.isITStaff == true)
+                        IconButton(
+                          icon: const Icon(Icons.person_remove, color: Colors.red),
+                          onPressed: _unassignAsset,
+                          tooltip: 'Unassign Asset',
+                        ),
+                    ],
                   ),
-                ],
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Not assigned to anyone',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 12),
+                ),
+                // Additional info for Team Leads
+                if (user?.isStaff == true && asset.isAssigned)
+                  _buildTeamLeadAssignmentInfo(asset),
+              ],
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Not assigned to anyone',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 12),
+                // Show assign button only for Admin/IT Staff
+                if (user?.isAdmin == true || user?.isITStaff == true)
                   ElevatedButton.icon(
                     onPressed: _showUserSelection,
                     icon: const Icon(Icons.person_add),
@@ -589,13 +637,142 @@ Future<void> _unassignAsset() async {
                       foregroundColor: Colors.white,
                     ),
                   ),
-                ],
+                // Show info for Team Leads when asset is unassigned
+                if (user?.isStaff == true && !asset.isAssigned)
+                  _buildTeamLeadUnassignedInfo(),
+              ],
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+//for team lead assignment info
+
+// Add this method for Team Lead assignment information
+Widget _buildTeamLeadAssignmentInfo(Asset asset) {
+  return Container(
+    margin: const EdgeInsets.only(top: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.green[50],
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.green[100]!),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.info, color: Colors.green[600], size: 16),
+            const SizedBox(width: 8),
+            const Text(
+              'Team Lead Information',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'This asset is assigned to one of your team members.',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.green[800],
+          ),
+        ),
+        const SizedBox(height: 4),
+        // You could add more team-specific info here, like:
+        // - Team member's performance stats
+        // - Recent tickets for this asset
+        // - Upcoming maintenance
+        Wrap(
+          spacing: 8,
+          children: [
+            Chip(
+              label: Text('Active Asset'),
+              backgroundColor: Colors.green[100],
+              labelStyle: const TextStyle(color: Colors.green),
+            ),
+            if (asset.needsService)
+              Chip(
+                label: Text('Needs Service'),
+                backgroundColor: Colors.orange[100],
+                labelStyle: const TextStyle(color: Colors.orange),
               ),
           ],
         ),
-      ),
-    );
+      ],
+    ),
+  );
+}
+
+// Add this method for unassigned asset info for Team Leads
+Widget _buildTeamLeadUnassignedInfo() {
+  return Container(
+    margin: const EdgeInsets.only(top: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.orange[50],
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.orange[100]!),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange[600], size: 16),
+            const SizedBox(width: 8),
+            const Text(
+              'Unassigned Asset',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.orange,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'This asset is not currently assigned to any team member. '
+          'Contact IT staff to have it assigned.',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.orange[800],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// Helper method to get role name from role ID
+String _getRoleName(int roleId) {
+  switch (roleId) {
+    case 1: return 'Admin';
+    case 2: return 'IT Staff';
+    case 3: return 'Team Lead';
+    case 4: return 'Agent';
+    case 5: return 'Viewer';
+    default: return 'Unknown Role';
   }
+}
+
+// Helper method to get role color from role ID
+Color _getRoleColor(int roleId) {
+  switch (roleId) {
+    case 1: return Colors.red; // Admin
+    case 2: return Colors.orange; // IT Staff
+    case 3: return Colors.green; // Team Lead
+    case 4: return Colors.blue; // Agent
+    case 5: return Colors.grey; // Viewer
+    default: return Colors.blueGrey;
+  }
+}
 
   Widget _buildTechnicalPage(Asset asset) {
     return SingleChildScrollView(
@@ -640,10 +817,15 @@ Future<void> _unassignAsset() async {
 
 //  asset service page
   Widget _buildServicePage(Asset asset) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.currentUser;
+
     return Consumer<ServiceLogProvider>(
       builder: (context, serviceLogProvider, child) {
         // Load service logs when this page is built (if not already loading)
-        if (_isInitialLoad && !serviceLogProvider.isLoading && serviceLogProvider.serviceLogs.isEmpty) {
+        if (_isInitialLoad &&
+            !serviceLogProvider.isLoading &&
+            serviceLogProvider.serviceLogs.isEmpty) {
           _isInitialLoad = false;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _loadServiceLogs();
@@ -652,79 +834,86 @@ Future<void> _unassignAsset() async {
 
         return Column(
           children: [
-            // Quick Actions Card
-            Card(
-              margin: const EdgeInsets.all(16),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Quick Actions',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+            // Quick Actions Card - Hide for Agents
+            if (user?.isAdmin == true ||
+                user?.isITStaff == true ||
+                user?.isStaff == true)
+              Card(
+                margin: const EdgeInsets.all(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Quick Actions',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ActionChip(
-                          avatar: const Icon(Icons.add, size: 16),
-                          label: const Text('Log Service'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ServiceLogFormScreen(asset: asset),
-                              ),
-                            );
-                          },
-                        ),
-                        ActionChip(
-                          avatar: const Icon(Icons.schedule, size: 16),
-                          label: const Text('Schedule Service'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ScheduleServiceScreen(asset: asset),
-                              ),
-                            );
-                          },
-                        ),
-                        if (asset.needsService)
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
                           ActionChip(
-                            avatar: const Icon(Icons.warning, size: 16, color: Colors.orange),
-                            label: const Text('Mark as Serviced'),
-                            backgroundColor: Colors.orange[100],
+                            avatar: const Icon(Icons.add, size: 16),
+                            label: const Text('Log Service'),
                             onPressed: () {
-                              _quickMarkAsServiced(asset);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ServiceLogFormScreen(asset: asset),
+                                ),
+                              );
                             },
                           ),
-                        ActionChip(
-                          avatar: const Icon(Icons.history, size: 16),
-                          label: const Text('View Full History'),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ServiceLogListScreen(asset: asset),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
+                          ActionChip(
+                            avatar: const Icon(Icons.schedule, size: 16),
+                            label: const Text('Schedule Service'),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ScheduleServiceScreen(asset: asset),
+                                ),
+                              );
+                            },
+                          ),
+                          if (asset.needsService)
+                            ActionChip(
+                              avatar: const Icon(Icons.warning,
+                                  size: 16, color: Colors.orange),
+                              label: const Text('Mark as Serviced'),
+                              backgroundColor: Colors.orange[100],
+                              onPressed: () {
+                                _quickMarkAsServiced(asset);
+                              },
+                            ),
+                          ActionChip(
+                            avatar: const Icon(Icons.history, size: 16),
+                            label: const Text('View Full History'),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ServiceLogListScreen(asset: asset),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Service History Preview
+            // Service History Preview - Always show for all roles (read-only)
             Card(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               child: Padding(
@@ -748,7 +937,8 @@ Future<void> _unassignAsset() async {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => ServiceLogListScreen(asset: asset),
+                                  builder: (context) =>
+                                      ServiceLogListScreen(asset: asset),
                                 ),
                               );
                             },
@@ -757,13 +947,13 @@ Future<void> _unassignAsset() async {
                       ],
                     ),
                     const SizedBox(height: 12),
-
                     if (serviceLogProvider.isLoading)
                       const Center(child: CircularProgressIndicator())
                     else if (serviceLogProvider.serviceLogs.isEmpty)
-                      _buildServiceEmptyState(asset, serviceLogProvider) // FIXED: Pass asset parameter
+                      _buildServiceEmptyState(asset, serviceLogProvider)
                     else
-                      _buildServiceHistoryPreview(serviceLogProvider.serviceLogs),
+                      _buildServiceHistoryPreview(
+                          serviceLogProvider.serviceLogs),
                   ],
                 ),
               ),
@@ -775,7 +965,11 @@ Future<void> _unassignAsset() async {
   }
 
   // Update the _buildServiceEmptyState method to accept asset parameter:
-  Widget _buildServiceEmptyState(Asset asset, ServiceLogProvider serviceLogProvider) {
+  Widget _buildServiceEmptyState(
+      Asset asset, ServiceLogProvider serviceLogProvider) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.currentUser;
+
     if (serviceLogProvider.isLoading) {
       return const Center(
         child: Column(
@@ -805,25 +999,31 @@ Future<void> _unassignAsset() async {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'No service history found for this asset.',
+        Text(
+          user?.isAgent == true
+              ? 'No service history available for this asset.'
+              : 'No service history found for this asset.',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.grey,
           ),
         ),
         const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ServiceLogFormScreen(asset: asset), // Now asset is available
-              ),
-            );
-          },
-          child: const Text('Add First Service Record'),
-        ),
+        // Hide "Add First Service Record" button for Agents
+        if (user?.isAdmin == true ||
+            user?.isITStaff == true ||
+            user?.isStaff == true)
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ServiceLogFormScreen(asset: asset),
+                ),
+              );
+            },
+            child: const Text('Add First Service Record'),
+          ),
       ],
     );
   }
@@ -937,15 +1137,17 @@ Future<void> _unassignAsset() async {
   }
 
   void _loadServiceLogs() {
-  if (!mounted) return;
-  
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final serviceLogProvider = Provider.of<ServiceLogProvider>(context, listen: false);
-  
-  if (authProvider.authData != null) {
-    serviceLogProvider.loadServiceLogsForAsset(widget.assetId, authProvider.authData!.token);
+    if (!mounted) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final serviceLogProvider =
+        Provider.of<ServiceLogProvider>(context, listen: false);
+
+    if (authProvider.authData != null) {
+      serviceLogProvider.loadServiceLogsForAsset(
+          widget.assetId, authProvider.authData!.token);
+    }
   }
-}
 
   TableRow _buildTableRow(String label, String value) {
     return TableRow(

@@ -433,17 +433,19 @@ class _TicketFormScreenState extends State<TicketFormScreen> {
               const SizedBox(height: 16),
 
               // Internal Ticket
-              CheckboxListTile(
-                title: const Text('Internal Ticket'),
-                subtitle: const Text('Only visible to IT staff and administrators'),
-                value: _isInternal,
-                onChanged: (value) {
-                  setState(() {
-                    _isInternal = value ?? false;
-                  });
-                },
-              ),
-              const SizedBox(height: 24),
+              if (authProvider.currentUser?.isAdmin == true || 
+    authProvider.currentUser?.isITStaff == true)
+  CheckboxListTile(
+    title: const Text('Internal Ticket'),
+    subtitle: const Text('Only visible to IT staff and administrators'),
+    value: _isInternal,
+    onChanged: (value) {
+      setState(() {
+        _isInternal = value ?? false;
+      });
+    },
+  ),
+  const SizedBox(height: 16),
 
               // Submit Button
               ElevatedButton(

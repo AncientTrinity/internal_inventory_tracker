@@ -50,40 +50,40 @@ class _TicketListScreenState extends State<TicketListScreen> {
     {'value': 'low', 'label': 'Low'},
   ];
 
-@override
-void initState() {
-  super.initState();
-  // Use Future.microtask to load after build completes
-  Future.microtask(() {
-    _loadTickets();
-    _loadAvailableData();
-  });
-}
-
-Future<void> _loadTickets() async {
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
-
-  if (authProvider.authData != null) {
-    await ticketProvider.loadTickets(authProvider.authData!.token);
+  @override
+  void initState() {
+    super.initState();
+    // Use Future.microtask to load after build completes
+    Future.microtask(() {
+      _loadTickets();
+      _loadAvailableData();
+    });
   }
-}
+
+  Future<void> _loadTickets() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+
+    if (authProvider.authData != null) {
+      await ticketProvider.loadTickets(authProvider.authData!.token);
+    }
+  }
 
   Future<void> _loadAvailableData() async {
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final assetProvider = Provider.of<AssetProvider>(context, listen: false);
 
-  if (authProvider.authData != null) {
-    // Load assets for filtering
-    await assetProvider.loadAssets(authProvider.authData!.token);
-    setState(() {
-      _availableAssets = assetProvider.assets;
-    });
+    if (authProvider.authData != null) {
+      // Load assets for filtering
+      await assetProvider.loadAssets(authProvider.authData!.token);
+      setState(() {
+        _availableAssets = assetProvider.assets;
+      });
 
-    // In a real app, you'd load users here for assignment
-    _availableUsers = [];
+      // In a real app, you'd load users here for assignment
+      _availableUsers = [];
+    }
   }
-}
 
   Future<void> _refreshTickets() async {
     await _loadTickets();
@@ -91,8 +91,15 @@ Future<void> _loadTickets() async {
 
   List<Ticket> _getFilteredTickets() {
     final ticketProvider = Provider.of<TicketProvider>(context);
-    var filteredTickets = ticketProvider.tickets;
+    final authProvider = Provider.of<AuthProvider>(context);
+    final currentUser = authProvider.currentUser;
 
+    if (currentUser == null) return [];
+
+    // First apply role-based filtering
+    var filteredTickets = _getRoleBasedTickets(ticketProvider.tickets, currentUser);
+
+    // Then apply the existing filters (status, priority, search, etc.)
     // Apply status filter
     if (_selectedStatus != 'ALL') {
       filteredTickets = filteredTickets.where((ticket) => ticket.status == _selectedStatus).toList();
@@ -124,14 +131,14 @@ Future<void> _loadTickets() async {
 
     // Date range filter
     if (_startDate != null) {
-      filteredTickets = filteredTickets.where((ticket) => 
-        ticket.createdAt.isAfter(_startDate!.subtract(const Duration(days: 1)))
+      filteredTickets = filteredTickets.where((ticket) =>
+          ticket.createdAt.isAfter(_startDate!.subtract(const Duration(days: 1)))
       ).toList();
     }
 
     if (_endDate != null) {
-      filteredTickets = filteredTickets.where((ticket) => 
-        ticket.createdAt.isBefore(_endDate!.add(const Duration(days: 1)))
+      filteredTickets = filteredTickets.where((ticket) =>
+          ticket.createdAt.isBefore(_endDate!.add(const Duration(days: 1)))
       ).toList();
     }
 
@@ -148,7 +155,7 @@ Future<void> _loadTickets() async {
 
   Widget _buildTicketItem(Ticket ticket) {
     final isSelected = _selectedTickets.contains(ticket);
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
@@ -192,7 +199,8 @@ Future<void> _loadTickets() async {
               children: [
                 // Status badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: ticket.statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -209,7 +217,8 @@ Future<void> _loadTickets() async {
                 const SizedBox(width: 8),
                 // Priority badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: ticket.priorityColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -255,7 +264,9 @@ Future<void> _loadTickets() async {
             ),
           ],
         ),
-        trailing: _isSelectionMode ? null : const Icon(Icons.arrow_forward_ios, size: 16),
+        trailing: _isSelectionMode
+            ? null
+            : const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
           if (_isSelectionMode) {
             _toggleTicketSelection(ticket);
@@ -405,7 +416,7 @@ Future<void> _loadTickets() async {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Assignee Filter
             DropdownButtonFormField<String>(
               value: _selectedAssignee,
@@ -414,8 +425,10 @@ Future<void> _loadTickets() async {
                 border: OutlineInputBorder(),
               ),
               items: [
-                const DropdownMenuItem(value: 'ALL', child: Text('All Assignees')),
-                const DropdownMenuItem(value: 'UNASSIGNED', child: Text('Unassigned')),
+                const DropdownMenuItem(
+                    value: 'ALL', child: Text('All Assignees')),
+                const DropdownMenuItem(
+                    value: 'UNASSIGNED', child: Text('Unassigned')),
                 ..._availableUsers.map((user) {
                   return DropdownMenuItem(
                     value: user.id.toString(),
@@ -438,10 +451,9 @@ Future<void> _loadTickets() async {
                   child: TextFormField(
                     readOnly: true,
                     controller: TextEditingController(
-                      text: _startDate != null 
-                        ? DateFormat('yyyy-MM-dd').format(_startDate!)
-                        : 'Start Date'
-                    ),
+                        text: _startDate != null
+                            ? DateFormat('yyyy-MM-dd').format(_startDate!)
+                            : 'Start Date'),
                     decoration: const InputDecoration(
                       labelText: 'From Date',
                       border: OutlineInputBorder(),
@@ -455,10 +467,9 @@ Future<void> _loadTickets() async {
                   child: TextFormField(
                     readOnly: true,
                     controller: TextEditingController(
-                      text: _endDate != null 
-                        ? DateFormat('yyyy-MM-dd').format(_endDate!)
-                        : 'End Date'
-                    ),
+                        text: _endDate != null
+                            ? DateFormat('yyyy-MM-dd').format(_endDate!)
+                            : 'End Date'),
                     decoration: const InputDecoration(
                       labelText: 'To Date',
                       border: OutlineInputBorder(),
@@ -480,7 +491,8 @@ Future<void> _loadTickets() async {
               ),
               items: [
                 const DropdownMenuItem(value: 'ALL', child: Text('All Assets')),
-                const DropdownMenuItem(value: 'NO_ASSET', child: Text('No Asset Linked')),
+                const DropdownMenuItem(
+                    value: 'NO_ASSET', child: Text('No Asset Linked')),
                 ..._availableAssets.map((asset) {
                   return DropdownMenuItem(
                     value: asset.id.toString(),
@@ -541,9 +553,12 @@ Future<void> _loadTickets() async {
             icon: const Icon(Icons.more_vert),
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'assign', child: Text('Assign to...')),
-              const PopupMenuItem(value: 'status', child: Text('Update Status...')),
-              const PopupMenuItem(value: 'priority', child: Text('Update Priority...')),
-              const PopupMenuItem(value: 'delete', child: Text('Delete Tickets')),
+              const PopupMenuItem(
+                  value: 'status', child: Text('Update Status...')),
+              const PopupMenuItem(
+                  value: 'priority', child: Text('Update Priority...')),
+              const PopupMenuItem(
+                  value: 'delete', child: Text('Delete Tickets')),
             ],
             onSelected: (value) => _handleBulkAction(value),
           ),
@@ -557,14 +572,15 @@ Future<void> _loadTickets() async {
     );
   }
 
-  Future<void> _selectDate(BuildContext context, {required bool isStartDate}) async {
+  Future<void> _selectDate(BuildContext context,
+      {required bool isStartDate}) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
-    
+
     if (picked != null) {
       setState(() {
         if (isStartDate) {
@@ -636,66 +652,66 @@ Future<void> _loadTickets() async {
     }
   }
 
-void _showBulkAssignmentDialog() async {
-  final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+  void _showBulkAssignmentDialog() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
 
-  if (authProvider.authData == null) return;
+    if (authProvider.authData == null) return;
 
-  try {
-    // Load available users if not already loaded
-    if (ticketProvider.availableUsers.isEmpty) {
-      await ticketProvider.loadAvailableUsers(authProvider.authData!.token);
-    }
+    try {
+      // Load available users if not already loaded
+      if (ticketProvider.availableUsers.isEmpty) {
+        await ticketProvider.loadAvailableUsers(authProvider.authData!.token);
+      }
 
-    final selectedUserId = await showDialog<int?>(
-      context: context,
-      builder: (context) => UserSelectionDialog(
-        users: ticketProvider.availableUsers,
-        title: 'Assign ${_selectedTickets.length} Tickets',
-        currentAssigneeId: null,
-      ),
-    );
-
-    if (selectedUserId != null) {
-      final ticketIds = _selectedTickets.map((t) => t.id).toList();
-      await ticketProvider.bulkReassignTickets(
-        ticketIds,
-        selectedUserId,
-        authProvider.authData!.token,
+      final selectedUserId = await showDialog<int?>(
+        context: context,
+        builder: (context) => UserSelectionDialog(
+          users: ticketProvider.availableUsers,
+          title: 'Assign ${_selectedTickets.length} Tickets',
+          currentAssigneeId: null,
+        ),
       );
 
-      setState(() {
-        _isSelectionMode = false;
-        _selectedTickets.clear();
-      });
+      if (selectedUserId != null) {
+        final ticketIds = _selectedTickets.map((t) => t.id).toList();
+        await ticketProvider.bulkReassignTickets(
+          ticketIds,
+          selectedUserId,
+          authProvider.authData!.token,
+        );
 
+        setState(() {
+          _isSelectionMode = false;
+          _selectedTickets.clear();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(selectedUserId == null
+                ? '${ticketIds.length} tickets unassigned successfully'
+                : '${ticketIds.length} tickets assigned successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(selectedUserId == null 
-            ? '${ticketIds.length} tickets unassigned successfully' 
-            : '${ticketIds.length} tickets assigned successfully'
-          ),
-          backgroundColor: Colors.green,
+          content: Text('Failed to assign tickets: $e'),
+          backgroundColor: Colors.red,
         ),
       );
     }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to assign tickets: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
 
   void _showBulkStatusDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Update Status'),
-        content: const Text('Bulk status update feature will be implemented in the next phase.'),
+        content: const Text(
+            'Bulk status update feature will be implemented in the next phase.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -711,7 +727,8 @@ void _showBulkAssignmentDialog() async {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Update Priority'),
-        content: const Text('Bulk priority update feature will be implemented in the next phase.'),
+        content: const Text(
+            'Bulk priority update feature will be implemented in the next phase.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -727,7 +744,8 @@ void _showBulkAssignmentDialog() async {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Tickets'),
-        content: Text('Are you sure you want to delete ${_selectedTickets.length} tickets? This action cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete ${_selectedTickets.length} tickets? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -754,9 +772,10 @@ void _showBulkAssignmentDialog() async {
 
     try {
       for (final ticket in _selectedTickets) {
-        await ticketProvider.deleteTicket(ticket.id, authProvider.authData!.token);
+        await ticketProvider.deleteTicket(
+            ticket.id, authProvider.authData!.token);
       }
-      
+
       setState(() {
         _isSelectionMode = false;
         _selectedTickets.clear();
@@ -764,7 +783,8 @@ void _showBulkAssignmentDialog() async {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully deleted ${_selectedTickets.length} tickets'),
+          content:
+              Text('Successfully deleted ${_selectedTickets.length} tickets'),
           backgroundColor: Colors.green,
         ),
       );
@@ -793,6 +813,35 @@ void _showBulkAssignmentDialog() async {
     }
   }
 
+  List<Ticket> _getRoleBasedTickets(List<Ticket> allTickets, User? currentUser) {
+    if (currentUser == null) return [];
+
+    if (currentUser.canViewAllTickets) {
+      // Admin, IT Staff, and Staff can see all tickets
+      return allTickets;
+    } else if (currentUser.isAgent) {
+      // Agents can only see:
+      // 1. Tickets they created
+      // 2. Tickets linked to assets assigned to them
+      final assetProvider = Provider.of<AssetProvider>(context, listen: false);
+      final userAssets = assetProvider.getAssetsAssignedToUser(currentUser.id);
+      final userAssetIds = userAssets.map((asset) => asset.id).toList();
+
+      return allTickets.where((ticket) {
+        final isCreatedByAgent = ticket.createdBy == currentUser.id;
+        final isLinkedToAgentAsset = ticket.assetId != null &&
+            userAssetIds.contains(ticket.assetId);
+
+        return isCreatedByAgent || isLinkedToAgentAsset;
+      }).toList();
+    } else if (currentUser.isViewer) {
+      // Viewers can only see non-internal tickets
+      return allTickets.where((ticket) => !ticket.isInternal).toList();
+    }
+
+    return [];
+  }
+
   @override
   Widget build(BuildContext context) {
     final ticketProvider = Provider.of<TicketProvider>(context);
@@ -817,17 +866,25 @@ void _showBulkAssignmentDialog() async {
             onPressed: ticketProvider.isLoading ? null : _refreshTickets,
             tooltip: 'Refresh',
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TicketFormScreen(),
+          // Only show create button for users who can create tickets
+          Consumer<AuthProvider>(
+            builder: (context, authProvider, child) {
+              return Visibility(
+                visible: authProvider.currentUser?.canCreateTickets == true,
+                child: IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TicketFormScreen(),
+                      ),
+                    );
+                  },
+                  tooltip: 'Create Ticket',
                 ),
               );
             },
-            tooltip: 'Create Ticket',
           ),
         ],
       ),
@@ -861,11 +918,11 @@ void _showBulkAssignmentDialog() async {
               },
             ),
           ),
-          
+
           // Priority Filter
           _buildPriorityFilter(),
           const SizedBox(height: 8),
-          
+
           // Status Filter Chips
           _buildFilterChips(),
           const SizedBox(height: 8),

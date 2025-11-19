@@ -192,6 +192,7 @@ class AssetFilters {
     this.assignmentStatus,
   });
 
+
   Map<String, String> toQueryParams() {
     final params = <String, String>{};
 
@@ -219,6 +220,7 @@ class AssetFilters {
 
     return params;
   }
+
 
   AssetFilters copyWith({
     String? searchQuery,
