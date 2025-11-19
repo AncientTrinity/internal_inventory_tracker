@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/ticket_provider.dart';
 import '../../widgets/common/app_drawer.dart';
 import '../../providers/dashboard_provider.dart';
 
@@ -21,20 +22,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDashboardData() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
+    final authProvider =
+        Provider.of<AuthProvider>(context, listen: false); // auth provider
+    final dashboardProvider = Provider.of<DashboardProvider>(context,
+        listen: false); // dashboard provider
+    final ticketProvider =
+        Provider.of<TicketProvider>(context, listen: false); // ticket provider
 
     if (authProvider.authData != null) {
       await dashboardProvider.loadDashboardData(authProvider.authData!.token);
+      await ticketProvider
+          .loadTickets(authProvider.authData!.token); // LOAD TICKETS
     }
   }
 
   Future<void> _refreshData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
+    final dashboardProvider =
+        Provider.of<DashboardProvider>(context, listen: false);
+    final ticketProvider =
+        Provider.of<TicketProvider>(context, listen: false); // ADD THIS
 
     if (authProvider.authData != null) {
       await dashboardProvider.refreshData(authProvider.authData!.token);
+      await ticketProvider
+          .loadTickets(authProvider.authData!.token); // ADD THIS
     }
   }
 
@@ -69,23 +81,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     // Welcome Section
                     _buildWelcomeSection(context, authProvider),
-                    
+
                     const SizedBox(height: 20),
 
                     // Quick Stats Section
                     _buildStatsSection(context, dashboardProvider),
-                    
+
+                    const SizedBox(height: 20),
+
+                    // Ticket Stats Section -
+                    _buildTicketStats(),
+
                     const SizedBox(height: 20),
 
                     // Recent Activity Section
                     _buildRecentActivitySection(context, dashboardProvider),
-                    
+
                     const SizedBox(height: 20),
 
                     // Assets Needing Service Section
                     if (dashboardProvider.assetsNeedingService.isNotEmpty)
-                      _buildAssetsNeedingServiceSection(context, dashboardProvider),
-                    
+                      _buildAssetsNeedingServiceSection(
+                          context, dashboardProvider),
+
                     const SizedBox(height: 20),
 
                     // Quick Actions Section
@@ -146,7 +164,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Stats Section
-  Widget _buildStatsSection(BuildContext context, DashboardProvider dashboardProvider) {
+  Widget _buildStatsSection(
+      BuildContext context, DashboardProvider dashboardProvider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -174,7 +193,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icons.computer,
               color: Colors.blue,
               onTap: () {
-                // Navigate to assets
+                Navigator.pushNamed(context, '/assets');
               },
             ),
             _buildStatCard(
@@ -185,7 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icons.confirmation_number,
               color: Colors.orange,
               onTap: () {
-                // Navigate to tickets
+                Navigator.pushNamed(context, '/tickets');
               },
             ),
             _buildStatCard(
@@ -217,7 +236,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Recent Activity Section
-  Widget _buildRecentActivitySection(BuildContext context, DashboardProvider dashboardProvider) {
+  Widget _buildRecentActivitySection(
+      BuildContext context, DashboardProvider dashboardProvider) {
     final recentTickets = dashboardProvider.recentTickets.take(3).toList();
     final recentAssets = dashboardProvider.recentAssets.take(2).toList();
 
@@ -244,27 +264,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 16),
-
             if (recentTickets.isNotEmpty) ...[
               ...recentTickets.map((ticket) => _buildActivityItem(
-                'New Ticket: ${ticket.title}',
-                'Ticket #${ticket.ticketNum}',
-                Icons.confirmation_number,
-                _getTicketStatusColor(ticket.status),
-              )),
+                    'New Ticket: ${ticket.title}',
+                    'Ticket #${ticket.id}', // Use id instead of ticketNum
+                    Icons.confirmation_number,
+                    _getTicketStatusColor(ticket.status),
+                  )),
               const SizedBox(height: 8),
             ],
-
             if (recentAssets.isNotEmpty) ...[
               ...recentAssets.map((asset) => _buildActivityItem(
-                'Asset Added: ${asset.internalId}',
-                '${asset.manufacturer} ${asset.model}',
-                Icons.computer,
-                Colors.blue,
-              )),
+                    'Asset Added: ${asset.internalId}',
+                    '${asset.manufacturer} ${asset.model}',
+                    Icons.computer,
+                    Colors.blue,
+                  )),
               const SizedBox(height: 8),
             ],
-
             if (recentTickets.isEmpty && recentAssets.isEmpty)
               _buildActivityItem(
                 'No recent activity',
@@ -279,7 +296,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Assets Needing Service Section
-  Widget _buildAssetsNeedingServiceSection(BuildContext context, DashboardProvider dashboardProvider) {
+  Widget _buildAssetsNeedingServiceSection(
+      BuildContext context, DashboardProvider dashboardProvider) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -304,18 +322,197 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ...dashboardProvider.assetsNeedingService.take(3).map((asset) => 
-              ListTile(
-                leading: Icon(Icons.build, color: Colors.orange),
-                title: Text(asset.internalId),
-                subtitle: Text('${asset.assetType} • ${asset.model}'),
-                trailing: Text(
-                  'Service Due',
-                  style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+            ...dashboardProvider.assetsNeedingService
+                .take(3)
+                .map((asset) => ListTile(
+                      leading: Icon(Icons.build, color: Colors.orange),
+                      title: Text(asset.internalId),
+                      subtitle: Text('${asset.assetType} • ${asset.model}'),
+                      trailing: Text(
+                        'Service Due',
+                        style: TextStyle(
+                            color: Colors.orange, fontWeight: FontWeight.bold),
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      visualDensity:
+                          const VisualDensity(horizontal: 0, vertical: -4),
+                    )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  //  QuckActions Section - Role Based
+  Widget _buildQuickActionsSection(
+      BuildContext context, AuthProvider authProvider) {
+    final user = authProvider.currentUser;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.flash_on,
+                  color: Theme.of(context).primaryColor,
                 ),
-                contentPadding: EdgeInsets.zero,
-                visualDensity: const VisualDensity(horizontal: 0, vertical: -4),
-              )
+                const SizedBox(width: 8),
+                Text(
+                  'Quick Actions',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                // Common actions for all roles
+                _buildActionChip(
+                  'View Assets',
+                  Icons.computer,
+                  () {
+                    Navigator.pushNamed(context, '/assets');
+                  },
+                ),
+                _buildActionChip(
+                  'View Tickets',
+                  Icons.list_alt,
+                  () {
+                    Navigator.pushNamed(context, '/tickets');
+                  },
+                ),
+
+                // Create actions for users who can create content
+                if (user?.isViewer == false)
+                  _buildActionChip(
+                    'Create Ticket',
+                    Icons.add_task,
+                    () {
+                      Navigator.pushNamed(
+                          context, '/tickets/create'); // UPDATED
+                    },
+                  ),
+
+                // Asset creation for Admin and IT
+                if (user?.isAdmin == true || user?.isITStaff == true)
+                  _buildActionChip(
+                    'Add Asset',
+                    Icons.add,
+                    () {
+                      Navigator.pushNamed(context, '/assets/add'); // UPDATED
+                    },
+                  ),
+
+                // Admin specific actions
+                if (user?.isAdmin == true) ...[
+                  _buildActionChip(
+                    'Manage Users',
+                    Icons.people,
+                    () {
+                      Navigator.pushNamed(context, '/users');
+                    },
+                  ),
+                  _buildActionChip(
+                    'System Analytics',
+                    Icons.analytics,
+                    () {
+                      Navigator.pushNamed(context, '/analytics');
+                    },
+                  ),
+                ],
+
+                // IT Staff specific actions
+                if (user?.isITStaff == true) ...[
+                  _buildActionChip(
+                    'Assign Tickets',
+                    Icons.assignment_turned_in,
+                    () {
+                      Navigator.pushNamed(context, '/ticket-assignment');
+                    },
+                  ),
+                  _buildActionChip(
+                    'Service Management',
+                    Icons.build,
+                    () {
+                      Navigator.pushNamed(context, '/service-management');
+                    },
+                  ),
+                ],
+
+                // Staff/Team Lead specific actions
+                if (user?.isStaff == true) ...[
+                  _buildActionChip(
+                    'My Team',
+                    Icons.group,
+                    () {
+                      Navigator.pushNamed(context, '/my-team');
+                    },
+                  ),
+                  _buildActionChip(
+                    'Verify Tickets',
+                    Icons.assignment_ind,
+                    () {
+                      Navigator.pushNamed(context, '/ticket-verification');
+                    },
+                  ),
+                ],
+
+                // Agent specific actions
+                if (user?.isAgent == true) ...[
+                  _buildActionChip(
+                    'My Tickets',
+                    Icons.assignment,
+                    () {
+                      Navigator.pushNamed(context, '/my-tickets');
+                    },
+                  ),
+                  _buildActionChip(
+                    'My Assets',
+                    Icons.computer,
+                    () {
+                      Navigator.pushNamed(context, '/my-assets');
+                    },
+                  ),
+                ],
+
+                // Create actions for users who can create content
+                if (user?.isViewer == false) ...[
+                  _buildActionChip(
+                    'Create Ticket',
+                    Icons.add_task,
+                    () {
+                      // Will implement ticket creation later
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Ticket creation coming soon!')),
+                      );
+                    },
+                  ),
+                ],
+
+                // Asset creation for Admin and IT
+                if (user?.isAdmin == true || user?.isITStaff == true)
+                  _buildActionChip(
+                    'Add Asset',
+                    Icons.add,
+                    () {
+                      // Will implement asset creation later
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Asset creation coming soon!')),
+                      );
+                    },
+                  ),
+              ],
             ),
           ],
         ),
@@ -323,159 +520,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  
- //  QuckActions Section - Role Based
-Widget _buildQuickActionsSection(BuildContext context, AuthProvider authProvider) {
-  final user = authProvider.currentUser;
-  
-  return Card(
-    elevation: 2,
-    child: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.flash_on,
-                color: Theme.of(context).primaryColor,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Quick Actions',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              // Common actions for all roles
-              _buildActionChip(
-                'View Assets',
-                Icons.computer,
-                () {
-                  Navigator.pushNamed(context, '/assets');
-                },
-              ),
-              _buildActionChip(
-                'View Tickets',
-                Icons.list_alt,
-                () {
-                  Navigator.pushNamed(context, '/tickets');
-                },
-              ),
-
-              // Admin specific actions
-              if (user?.isAdmin == true) ...[
-                _buildActionChip(
-                  'Manage Users',
-                  Icons.people,
-                  () {
-                    Navigator.pushNamed(context, '/users');
-                  },
-                ),
-                _buildActionChip(
-                  'System Analytics',
-                  Icons.analytics,
-                  () {
-                    Navigator.pushNamed(context, '/analytics');
-                  },
-                ),
-              ],
-
-              // IT Staff specific actions
-              if (user?.isITStaff == true) ...[
-                _buildActionChip(
-                  'Assign Tickets',
-                  Icons.assignment_turned_in,
-                  () {
-                    Navigator.pushNamed(context, '/ticket-assignment');
-                  },
-                ),
-                _buildActionChip(
-                  'Service Management',
-                  Icons.build,
-                  () {
-                    Navigator.pushNamed(context, '/service-management');
-                  },
-                ),
-              ],
-
-              // Staff/Team Lead specific actions
-              if (user?.isStaff == true) ...[
-                _buildActionChip(
-                  'My Team',
-                  Icons.group,
-                  () {
-                    Navigator.pushNamed(context, '/my-team');
-                  },
-                ),
-                _buildActionChip(
-                  'Verify Tickets',
-                  Icons.assignment_ind,
-                  () {
-                    Navigator.pushNamed(context, '/ticket-verification');
-                  },
-                ),
-              ],
-
-              // Agent specific actions
-              if (user?.isAgent == true) ...[
-                _buildActionChip(
-                  'My Tickets',
-                  Icons.assignment,
-                  () {
-                    Navigator.pushNamed(context, '/my-tickets');
-                  },
-                ),
-                _buildActionChip(
-                  'My Assets',
-                  Icons.computer,
-                  () {
-                    Navigator.pushNamed(context, '/my-assets');
-                  },
-                ),
-              ],
-
-              // Create actions for users who can create content
-              if (user?.isViewer == false) ...[
-                _buildActionChip(
-                  'Create Ticket',
-                  Icons.add_task,
-                  () {
-                    // Will implement ticket creation later
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Ticket creation coming soon!')),
-                    );
-                  },
-                ),
-              ],
-
-              // Asset creation for Admin and IT
-              if (user?.isAdmin == true || user?.isITStaff == true)
-                _buildActionChip(
-                  'Add Asset',
-                  Icons.add,
-                  () {
-                    // Will implement asset creation later
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Asset creation coming soon!')),
-                    );
-                  },
-                ),
-            ],
-          ),
-        ],
-      ),
-    ),
-  );
-}
   // Helper method to build stat cards
   Widget _buildStatCard(
     BuildContext context, {
@@ -532,7 +576,8 @@ Widget _buildQuickActionsSection(BuildContext context, AuthProvider authProvider
   }
 
   // Helper method to build activity items
-  Widget _buildActivityItem(String title, String subtitle, IconData icon, Color color) {
+  Widget _buildActivityItem(
+      String title, String subtitle, IconData icon, Color color) {
     return ListTile(
       leading: Icon(icon, color: color, size: 20),
       title: Text(
@@ -574,6 +619,78 @@ Widget _buildQuickActionsSection(BuildContext context, AuthProvider authProvider
         return Colors.blue;
     }
   }
-}
 
-// 
+// Add this to your dashboard_screen.dart to show ticket statistics:
+
+  Widget _buildTicketStats() {
+    return Consumer<TicketProvider>(
+      builder: (context, ticketProvider, child) {
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Ticket Overview',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem(
+                        'Open',
+                        ticketProvider.getTicketsByStatus('OPEN').length,
+                        Colors.orange),
+                    _buildStatItem(
+                        'In Progress',
+                        ticketProvider.getTicketsByStatus('IN_PROGRESS').length,
+                        Colors.purple),
+                    _buildStatItem(
+                        'Resolved',
+                        ticketProvider.getTicketsByStatus('RESOLVED').length,
+                        Colors.green),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/tickets');
+                  },
+                  icon: const Icon(Icons.confirmation_number),
+                  label: const Text('View All Tickets'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatItem(String label, int count, Color color) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+}

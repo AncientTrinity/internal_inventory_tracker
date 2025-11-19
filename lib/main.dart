@@ -1,4 +1,5 @@
 //filename: lib/main.dart
+// filename: lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,12 +7,19 @@ import 'providers/asset_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/service_log_provider.dart';
+import 'providers/ticket_provider.dart'; // ADD THIS IMPORT
+
 import 'screens/assets/asset_form_screen.dart';
 import 'screens/assets/asset_list_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/placeholder/placeholder_screen.dart';
 import 'screens/splash_screen.dart';
+
+// ADD THESE TICKET SCREEN IMPORTS
+import 'screens/tickets/ticket_list_screen.dart';
+import 'screens/tickets/ticket_detail_screen.dart';
+import 'screens/tickets/ticket_form_screen.dart';
 
 void main() {
   runApp(const InternalInventoryTrackerApp());
@@ -28,6 +36,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => AssetProvider()),
         ChangeNotifierProvider(create: (context) => ServiceLogProvider()),
+        ChangeNotifierProvider(create: (context) => TicketProvider()),
       ],
       child: MaterialApp(
         title: 'Internal Inventory Tracker',
@@ -54,11 +63,11 @@ class InternalInventoryTrackerApp extends StatelessWidget {
           '/assets/edit': (context) => const AssetFormScreen(),
 
           // tickets
-          '/tickets': (context) => const PlaceholderScreen(
-                title: 'Tickets Management',
-                description:
-                    'Create, track, and manage support tickets and service requests.',
-              ),
+          '/tickets': (context) => const TicketListScreen(),
+          '/tickets/create': (context) => const TicketFormScreen(),
+
+
+
           '/notifications': (context) => const PlaceholderScreen(
                 title: 'Notifications',
                 description:
@@ -150,6 +159,20 @@ class InternalInventoryTrackerApp extends StatelessWidget {
               builder: (context) => AssetFormScreen(asset: args['asset']),
             );
           }
+
+          // Handle ticket details with dynamic ID
+          if (settings.name?.startsWith('/tickets/') == true) {
+            final parts = settings.name!.split('/');
+            if (parts.length == 3) {
+              final id = int.tryParse(parts[2]);
+              if (id != null) {
+                return MaterialPageRoute(
+                  builder: (context) => TicketDetailScreen(ticketId: id),
+                );
+              }
+            }
+          }
+
           return null;
         },
 
