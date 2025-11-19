@@ -33,11 +33,17 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  @override
-  void initState() {
-    super.initState();
+bool _isInitialLoad = true;
+
+@override
+void initState() {
+  super.initState();
+  // Use WidgetsBinding to schedule the load after build
+  WidgetsBinding.instance.addPostFrameCallback((_) {
     _loadAssetDetails();
-  }
+    _loadServiceLogs();
+  });
+}
 
   Future<void> _loadAssetDetails() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -636,6 +642,14 @@ Future<void> _unassignAsset() async {
   Widget _buildServicePage(Asset asset) {
     return Consumer<ServiceLogProvider>(
       builder: (context, serviceLogProvider, child) {
+        // Load service logs when this page is built (if not already loading)
+        if (_isInitialLoad && !serviceLogProvider.isLoading && serviceLogProvider.serviceLogs.isEmpty) {
+          _isInitialLoad = false;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _loadServiceLogs();
+          });
+        }
+
         return Column(
           children: [
             // Quick Actions Card
@@ -665,8 +679,7 @@ Future<void> _unassignAsset() async {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    ServiceLogFormScreen(asset: asset),
+                                builder: (context) => ServiceLogFormScreen(asset: asset),
                               ),
                             );
                           },
@@ -678,16 +691,14 @@ Future<void> _unassignAsset() async {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    ScheduleServiceScreen(asset: asset),
+                                builder: (context) => ScheduleServiceScreen(asset: asset),
                               ),
                             );
                           },
                         ),
                         if (asset.needsService)
                           ActionChip(
-                            avatar: const Icon(Icons.warning,
-                                size: 16, color: Colors.orange),
+                            avatar: const Icon(Icons.warning, size: 16, color: Colors.orange),
                             label: const Text('Mark as Serviced'),
                             backgroundColor: Colors.orange[100],
                             onPressed: () {
@@ -701,8 +712,7 @@ Future<void> _unassignAsset() async {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    ServiceLogListScreen(asset: asset),
+                                builder: (context) => ServiceLogListScreen(asset: asset),
                               ),
                             );
                           },
@@ -738,8 +748,7 @@ Future<void> _unassignAsset() async {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      ServiceLogListScreen(asset: asset),
+                                  builder: (context) => ServiceLogListScreen(asset: asset),
                                 ),
                               );
                             },
@@ -748,13 +757,13 @@ Future<void> _unassignAsset() async {
                       ],
                     ),
                     const SizedBox(height: 12),
+
                     if (serviceLogProvider.isLoading)
                       const Center(child: CircularProgressIndicator())
                     else if (serviceLogProvider.serviceLogs.isEmpty)
-                      _buildServiceEmptyState()
+                      _buildServiceEmptyState(asset, serviceLogProvider) // FIXED: Pass asset parameter
                     else
-                      _buildServiceHistoryPreview(
-                          serviceLogProvider.serviceLogs),
+                      _buildServiceHistoryPreview(serviceLogProvider.serviceLogs),
                   ],
                 ),
               ),
@@ -765,7 +774,21 @@ Future<void> _unassignAsset() async {
     );
   }
 
-  Widget _buildServiceEmptyState() {
+  // Update the _buildServiceEmptyState method to accept asset parameter:
+  Widget _buildServiceEmptyState(Asset asset, ServiceLogProvider serviceLogProvider) {
+    if (serviceLogProvider.isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading service history...'),
+          ],
+        ),
+      );
+    }
+
     return Column(
       children: [
         Icon(
@@ -792,8 +815,12 @@ Future<void> _unassignAsset() async {
         const SizedBox(height: 16),
         ElevatedButton(
           onPressed: () {
-            _showNotImplementedSnackbar(
-                'Service log creation will be implemented next');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ServiceLogFormScreen(asset: asset), // Now asset is available
+              ),
+            );
           },
           child: const Text('Add First Service Record'),
         ),
@@ -910,15 +937,15 @@ Future<void> _unassignAsset() async {
   }
 
   void _loadServiceLogs() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final serviceLogProvider =
-        Provider.of<ServiceLogProvider>(context, listen: false);
-
-    if (authProvider.authData != null) {
-      serviceLogProvider.loadServiceLogsForAsset(
-          widget.assetId, authProvider.authData!.token);
-    }
+  if (!mounted) return;
+  
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final serviceLogProvider = Provider.of<ServiceLogProvider>(context, listen: false);
+  
+  if (authProvider.authData != null) {
+    serviceLogProvider.loadServiceLogsForAsset(widget.assetId, authProvider.authData!.token);
   }
+}
 
   TableRow _buildTableRow(String label, String value) {
     return TableRow(

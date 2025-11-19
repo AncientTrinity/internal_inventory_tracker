@@ -396,9 +396,45 @@ Widget _buildServiceLogItem(ServiceLog serviceLog) {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final serviceLogProvider = Provider.of<ServiceLogProvider>(context);
+ @override
+Widget build(BuildContext context) {
+  final serviceLogProvider = Provider.of<ServiceLogProvider>(context);
+
+  // Show error state if there's an error
+  if (serviceLogProvider.error != null && serviceLogProvider.serviceLogs.isEmpty) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Service History - ${widget.asset.internalId}'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to Load Service Logs',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              serviceLogProvider.error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _refreshServiceLogs,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
     return Scaffold(
       appBar: AppBar(

@@ -49,46 +49,62 @@ class ServiceLogService {
 
   // Get service logs for an asset - expects RAW ARRAY
   Future<List<ServiceLog>> getServiceLogsForAsset(int assetId, String token) async {
-    try {
-      print('📡 Fetching service logs for asset $assetId');
-      
-      final response = await http.get(
-        Uri.parse('${ApiConfig.apiBaseUrl}/assets/$assetId/service-logs'),
-        headers: {
-          ...ApiConfig.headers,
-          'Authorization': 'Bearer $token',
-        },
-      );
+  try {
+    print('📡 Fetching service logs for asset $assetId');
+    
+    final response = await http.get(
+      Uri.parse('${ApiConfig.apiBaseUrl}/assets/$assetId/service-logs'),
+      headers: {
+        ...ApiConfig.headers,
+        'Authorization': 'Bearer $token',
+      },
+    );
 
-      final responseData = _handleResponse(response);
-      
-      List<dynamic> logsList;
-      
-      // Handle both array and object responses
-      if (responseData is List) {
-        logsList = responseData;
-      } else if (responseData is Map && responseData.containsKey('service_logs')) {
-        logsList = responseData['service_logs'];
-      } else if (responseData is Map && responseData.containsKey('data')) {
-        logsList = responseData['data'];
-      } else {
-        logsList = [responseData];
-      }
-      
-      print('📦 Parsed ${logsList.length} service logs');
-      
-      // Convert each item to ServiceLog with proper type casting
-      return logsList.map<ServiceLog>((log) {
-        if (log is Map) {
-          return ServiceLog.fromJson(Map<String, dynamic>.from(log));
-        }
-        throw Exception('Invalid service log data: $log');
-      }).toList();
-    } catch (e) {
-      print('❌ Failed to load service logs: $e');
-      throw Exception('Failed to load service logs: $e');
+    print('🔍 Service Log Response - Status: ${response.statusCode}');
+    print('🔍 Response Body: ${response.body}');
+
+    // Handle null or empty response
+    if (response.body.isEmpty || response.body == 'null') {
+      print('📦 No service logs found for asset $assetId');
+      return [];
     }
+
+    final responseData = _handleResponse(response);
+    
+    List<dynamic> logsList;
+    
+    // Handle both array and object responses
+    if (responseData is List) {
+      logsList = responseData;
+    } else if (responseData is Map && responseData.containsKey('service_logs')) {
+      logsList = responseData['service_logs'];
+    } else if (responseData is Map && responseData.containsKey('data')) {
+      logsList = responseData['data'];
+    } else {
+      logsList = [responseData];
+    }
+    
+    // Filter out null values
+    logsList = logsList.where((log) => log != null).toList();
+    
+    print('📦 Parsed ${logsList.length} service logs');
+    
+    // Convert each item to ServiceLog with proper type casting
+    return logsList.map<ServiceLog>((log) {
+      if (log is Map) {
+        return ServiceLog.fromJson(Map<String, dynamic>.from(log));
+      }
+      throw Exception('Invalid service log data: $log');
+    }).toList();
+  } catch (e) {
+    print('❌ Failed to load service logs: $e');
+    // Return empty list instead of throwing for 404 or empty responses
+    if (e.toString().contains('404') || e.toString().contains('null')) {
+      return [];
+    }
+    throw Exception('Failed to load service logs: $e');
   }
+}
 
   // Create service log - expects WRAPPED OBJECT response
   Future<ServiceLog> createServiceLog(ServiceLog serviceLog, String token) async {

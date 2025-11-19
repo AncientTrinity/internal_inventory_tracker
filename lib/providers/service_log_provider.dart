@@ -15,23 +15,33 @@ class ServiceLogProvider with ChangeNotifier {
   ServiceLog? get selectedServiceLog => _selectedServiceLog;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  int? _currentAssetId;
 
   // Load service logs for an asset
-  Future<void> loadServiceLogsForAsset(int assetId, String token) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      _serviceLogs = await _serviceLogService.getServiceLogsForAsset(assetId, token);
-      _error = null;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+ // In lib/providers/service_log_provider.dart, update the loadServiceLogsForAsset method:
+Future<void> loadServiceLogsForAsset(int assetId, String token) async {
+  // Don't load if already loading the same asset
+  if (_isLoading && _currentAssetId == assetId) {
+    return;
   }
+  
+  _isLoading = true;
+  _error = null;
+  _currentAssetId = assetId;
+  notifyListeners();
+
+  try {
+    _serviceLogs = await _serviceLogService.getServiceLogsForAsset(assetId, token);
+    _error = null;
+  } catch (e) {
+    _error = e.toString();
+    // Don't clear service logs on error, keep previous state
+  } finally {
+    _isLoading = false;
+    notifyListeners();
+  }
+}
+
 
   // Create a new service log
   Future<void> createServiceLog(ServiceLog serviceLog, String token) async {
