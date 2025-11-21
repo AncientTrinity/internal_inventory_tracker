@@ -51,4 +51,9 @@ class User {
   bool get canEditTickets => isAdmin || isITStaff;
   bool get canDeleteTickets => isAdmin || isITStaff;
 
+  bool get canRequestVerification => isAdmin || isITStaff || isStaff;
+bool get canVerifyTickets => isAdmin || isITStaff || isStaff;
+bool get canViewVerification => isAdmin || isITStaff || isStaff;
+bool get canCloseTickets => isAdmin || isITStaff;
+
 }

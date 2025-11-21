@@ -353,6 +353,156 @@ Future<Ticket> reassignTicket(int ticketId, int? assigneeId, String token) async
     }
   }
 
+
+// Set up verification for a ticket (change from not_required to pending)
+
+Future<Ticket> setupVerification(int ticketId, String token) async {
+  final response = await http.post(
+    Uri.parse('${ApiConfig.apiBaseUrl}/tickets/$ticketId/setup-verification'),
+    headers: {
+      ...ApiConfig.headers,
+      'Authorization': 'Bearer $token',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    return Ticket.fromJson(jsonDecode(response.body));
+  } else {
+    throw Exception('Failed to setup verification: ${response.statusCode}');
+  }
+}
+
+Future<Ticket> resetVerification(int ticketId, String token) async {
+  final response = await http.post(
+    Uri.parse('${ApiConfig.apiBaseUrl}/tickets/$ticketId/reset-verification'),
+    headers: {
+      ...ApiConfig.headers,
+      'Authorization': 'Bearer $token',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    return Ticket.fromJson(jsonDecode(response.body));
+  } else {
+    throw Exception('Failed to reset verification: ${response.statusCode}');
+  }
+}
+
+Future<Ticket> requestVerification(int ticketId, String notes, String token) async {
+  try {
+    print('📡 Requesting verification for ticket $ticketId');
+    
+    final response = await http.post(
+      Uri.parse('${ApiConfig.apiBaseUrl}/tickets/$ticketId/request-verification'),
+      headers: {
+        ...ApiConfig.headers,
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode({
+        'notes': notes,
+      }),
+    );
+
+    final responseData = _handleResponse(response);
+    
+    if (responseData is Map) {
+      return Ticket.fromJson(Map<String, dynamic>.from(responseData));
+    } else {
+      throw Exception('Unexpected response format: $responseData');
+    }
+  } catch (e) {
+    print('❌ Failed to request verification: $e');
+    throw Exception('Failed to request verification: $e');
+  }
+}
+
+// Verify or reject a ticket (only works when status is pending)
+Future<Ticket> verifyTicket(int ticketId, bool approved, String notes, String token) async {
+  try {
+    print('📡 ${approved ? 'Verifying' : 'Rejecting'} ticket $ticketId');
+    
+    final response = await http.post(
+      Uri.parse('${ApiConfig.apiBaseUrl}/tickets/$ticketId/verify'),
+      headers: {
+        ...ApiConfig.headers,
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode({
+        'approved': approved,
+        'notes': notes,
+      }),
+    );
+
+    final responseData = _handleResponse(response);
+    
+    if (responseData is Map) {
+      return Ticket.fromJson(Map<String, dynamic>.from(responseData));
+    } else {
+      throw Exception('Unexpected response format: $responseData');
+    }
+  } catch (e) {
+    print('❌ Failed to verify ticket: $e');
+    throw Exception('Failed to verify ticket: $e');
+  }
+}
+
+
+// Update ticket verification status
+Future<Ticket> updateTicketVerification(int ticketId, String verificationStatus, String verificationNotes, String token) async {
+  try {
+    print('📡 Updating ticket $ticketId verification to $verificationStatus');
+    
+    final response = await http.post(
+      Uri.parse('${ApiConfig.apiBaseUrl}/tickets/$ticketId/verify'),
+      headers: {
+        ...ApiConfig.headers,
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode({
+        'verification_status': verificationStatus,
+        'verification_notes': verificationNotes,
+      }),
+    );
+
+    final responseData = _handleResponse(response);
+    
+    if (responseData is Map) {
+      return Ticket.fromJson(Map<String, dynamic>.from(responseData));
+    } else {
+      throw Exception('Unexpected response format: $responseData');
+    }
+  } catch (e) {
+    print('❌ Failed to update ticket verification: $e');
+    throw Exception('Failed to update ticket verification: $e');
+  }
+}
+
+// Close verified ticket
+Future<Ticket> closeVerifiedTicket(int ticketId, String token) async {
+  try {
+    print('📡 Closing verified ticket $ticketId');
+    
+    final response = await http.post(
+      Uri.parse('${ApiConfig.apiBaseUrl}/tickets/$ticketId/close'),
+      headers: {
+        ...ApiConfig.headers,
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    final responseData = _handleResponse(response);
+    
+    if (responseData is Map) {
+      return Ticket.fromJson(Map<String, dynamic>.from(responseData));
+    } else {
+      throw Exception('Unexpected response format: $responseData');
+    }
+  } catch (e) {
+    print('❌ Failed to close verified ticket: $e');
+    throw Exception('Failed to close verified ticket: $e');
+  }
+}
+
   // Get ticket statistics
   Future<Map<String, dynamic>> getTicketStats(String token) async {
     try {

@@ -267,6 +267,200 @@ Future<void> bulkReassignTickets(List<int> ticketIds, int? assigneeId, String to
     }
   }
 
+  Future<void> setupTicketVerification(int ticketId, String token) async {
+  if (_isLoading) return;
+
+  _isLoading = true;
+  _error = null;
+  _safeNotifyListeners();
+
+  try {
+    final updatedTicket = await _ticketService.setupVerification(ticketId, token);
+
+    // Update in tickets list
+    final index = _tickets.indexWhere((t) => t.id == ticketId);
+    if (index != -1) {
+      _tickets[index] = updatedTicket;
+    }
+
+    // Update selected ticket if it's the same
+    if (_selectedTicket?.id == ticketId) {
+      _selectedTicket = updatedTicket;
+    }
+
+    _error = null;
+  } catch (e) {
+    _error = e.toString();
+    rethrow;
+  } finally {
+    _isLoading = false;
+    _safeNotifyListeners();
+  }
+}
+
+// Request verification for a ticket
+  Future<void> requestVerification(int ticketId, String notes, String token) async {
+    if (_isLoading) return;
+
+    _isLoading = true;
+    _error = null;
+    _safeNotifyListeners();
+
+    try {
+      final updatedTicket = await _ticketService.requestVerification(ticketId, notes, token);
+
+      // Update in tickets list
+      final index = _tickets.indexWhere((t) => t.id == ticketId);
+      if (index != -1) {
+        _tickets[index] = updatedTicket;
+      }
+
+      // Update selected ticket if it's the same
+      if (_selectedTicket?.id == ticketId) {
+        _selectedTicket = updatedTicket;
+      }
+
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      _safeNotifyListeners();
+    }
+  }
+
+// Verify or reject a ticket
+  Future<void> verifyTicket(int ticketId, bool approved, String notes, String token) async {
+    if (_isLoading) return;
+
+    _isLoading = true;
+    _error = null;
+    _safeNotifyListeners();
+
+    try {
+      final updatedTicket = await _ticketService.verifyTicket(ticketId, approved, notes, token);
+
+      // Update in tickets list
+      final index = _tickets.indexWhere((t) => t.id == ticketId);
+      if (index != -1) {
+        _tickets[index] = updatedTicket;
+      }
+
+      // Update selected ticket if it's the same
+      if (_selectedTicket?.id == ticketId) {
+        _selectedTicket = updatedTicket;
+      }
+
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      _safeNotifyListeners();
+    }
+  }
+// Update ticket verification
+  Future<void> updateTicketVerification(int ticketId, String verificationStatus, String verificationNotes, String token) async {
+  if (_isLoading) return;
+  
+  _isLoading = true;
+  _error = null;
+  _safeNotifyListeners();
+
+  try {
+    final updatedTicket = await _ticketService.updateTicketVerification(
+      ticketId, 
+      verificationStatus, 
+      verificationNotes, 
+      token
+    );
+    
+    // Update in tickets list
+    final index = _tickets.indexWhere((t) => t.id == ticketId);
+    if (index != -1) {
+      _tickets[index] = updatedTicket;
+    }
+    
+    // Update selected ticket if it's the same
+    if (_selectedTicket?.id == ticketId) {
+      _selectedTicket = updatedTicket;
+    }
+    
+    _error = null;
+  } catch (e) {
+    _error = e.toString();
+    rethrow;
+  } finally {
+    _isLoading = false;
+    _safeNotifyListeners();
+  }
+}
+
+// Close verified ticket
+Future<void> closeVerifiedTicket(int ticketId, String token) async {
+  if (_isLoading) return;
+  
+  _isLoading = true;
+  _error = null;
+  _safeNotifyListeners();
+
+  try {
+    final updatedTicket = await _ticketService.closeVerifiedTicket(ticketId, token);
+    
+    // Update in tickets list
+    final index = _tickets.indexWhere((t) => t.id == ticketId);
+    if (index != -1) {
+      _tickets[index] = updatedTicket;
+    }
+    
+    // Update selected ticket if it's the same
+    if (_selectedTicket?.id == ticketId) {
+      _selectedTicket = updatedTicket;
+    }
+    
+    _error = null;
+  } catch (e) {
+    _error = e.toString();
+    rethrow;
+  } finally {
+    _isLoading = false;
+    _safeNotifyListeners();
+  }
+}
+
+Future<void> resetVerification(int ticketId, String token) async {
+  if (_isLoading) return;
+
+  _isLoading = true;
+  _error = null;
+  _safeNotifyListeners();
+
+  try {
+    final updatedTicket = await _ticketService.resetVerification(ticketId, token);
+
+    // Update in tickets list
+    final index = _tickets.indexWhere((t) => t.id == ticketId);
+    if (index != -1) {
+      _tickets[index] = updatedTicket;
+    }
+
+    // Update selected ticket if it's the same
+    if (_selectedTicket?.id == ticketId) {
+      _selectedTicket = updatedTicket;
+    }
+
+    _error = null;
+  } catch (e) {
+    _error = e.toString();
+    rethrow;
+  } finally {
+    _isLoading = false;
+    _safeNotifyListeners();
+  }
+}
+
   // Get ticket statistics
   Future<Map<String, dynamic>> getTicketStats(String token) async {
     try {

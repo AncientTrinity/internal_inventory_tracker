@@ -21,6 +21,13 @@ class Ticket {
   final String? createdByName;
   final String? assetInternalId;
 
+  // Verification fields
+  final String verificationStatus; // not_required, pending, verified, rejected
+  final String verificationNotes;
+  final int? verifiedBy;
+  final DateTime? verifiedAt;
+  final String? verifiedByName;
+
   Ticket({
     required this.id,
     required this.title,
@@ -39,64 +46,75 @@ class Ticket {
     this.assignedToEmail,
     this.createdByName,
     this.assetInternalId,
+    required this.verificationStatus,
+    required this.verificationNotes,
+    this.verifiedBy,
+    this.verifiedAt,
+    this.verifiedByName,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
-  // Convert status to uppercase for consistency in Flutter
-  String status = json['status']?.toString().toUpperCase() ?? 'OPEN';
-  
-  // Handle the "in_progress" case specifically
-  if (status == 'IN_PROGRESS') {
-    status = 'IN_PROGRESS';
-  } else if (status == 'OPEN') {
-    status = 'OPEN';
-  } else if (status == 'RECEIVED') {
-    status = 'RECEIVED';
-  } else if (status == 'RESOLVED') {
-    status = 'RESOLVED';
-  } else if (status == 'CLOSED') {
-    status = 'CLOSED';
+    // Convert status to uppercase for consistency in Flutter
+    String status = json['status']?.toString().toUpperCase() ?? 'OPEN';
+    
+    // Handle the "in_progress" case specifically
+    if (status == 'IN_PROGRESS') {
+      status = 'IN_PROGRESS';
+    } else if (status == 'OPEN') {
+      status = 'OPEN';
+    } else if (status == 'RECEIVED') {
+      status = 'RECEIVED';
+    } else if (status == 'RESOLVED') {
+      status = 'RESOLVED';
+    } else if (status == 'CLOSED') {
+      status = 'CLOSED';
+    }
+
+    return Ticket(
+      id: json['id'],
+      title: json['title'],
+      description: json['description'],
+      status: status,
+      type: json['type'] ?? 'it_help',
+      priority: json['priority'] ?? 'normal',
+      createdBy: json['created_by'],
+      assignedTo: json['assigned_to'],
+      assetId: json['asset_id'],
+      completion: (json['completion'] ?? 0.0).toDouble(),
+      isInternal: json['is_internal'] ?? false,
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: DateTime.parse(json['updated_at'] ?? json['created_at']),
+      assignedToName: json['assigned_to_user']?['full_name'],
+      assignedToEmail: json['assigned_to_user']?['email'],
+      createdByName: json['created_by_user']?['full_name'],
+      assetInternalId: json['asset']?['internal_id'],
+      // Verification fields
+      verificationStatus: json['verification_status'] ?? 'not_required',
+      verificationNotes: json['verification_notes'] ?? '',
+      verifiedBy: json['verified_by'],
+      verifiedAt: json['verified_at'] != null ? DateTime.parse(json['verified_at']) : null,
+      verifiedByName: json['verified_by_user']?['full_name'],
+    );
   }
 
-  return Ticket(
-    id: json['id'],
-    title: json['title'],
-    description: json['description'],
-    status: status,
-    type: json['type'] ?? 'it_help',
-    priority: json['priority'] ?? 'normal',
-    createdBy: json['created_by'],
-    assignedTo: json['assigned_to'],
-    assetId: json['asset_id'],
-    completion: (json['completion'] ?? 0.0).toDouble(),
-    isInternal: json['is_internal'] ?? false,
-    createdAt: DateTime.parse(json['created_at']),
-    updatedAt: DateTime.parse(json['updated_at'] ?? json['created_at']),
-    assignedToName: json['assigned_to_user']?['full_name'],
-    assignedToEmail: json['assigned_to_user']?['email'],
-    createdByName: json['created_by_user']?['full_name'],
-    assetInternalId: json['asset']?['internal_id'],
-  );
-}
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'description': description,
+      'type': type,
+      'priority': priority,
+      'asset_id': assetId,
+      'is_internal': isInternal,
+    };
+  }
 
-Map<String, dynamic> toJson() {
-  return {
-    'title': title,
-    'description': description,
-    'type': type,
-    'priority': priority,
-    'asset_id': assetId,
-    'is_internal': isInternal,
-  };
-}
-
-Map<String, dynamic> toStatusUpdateJson() {
-  return {
-    'status': status.toLowerCase(), // Send lowercase to Go API
-    'completion': completion,
-    'assigned_to': assignedTo,
-  };
-}
+  Map<String, dynamic> toStatusUpdateJson() {
+    return {
+      'status': status.toLowerCase(), // Send lowercase to Go API
+      'completion': completion,
+      'assigned_to': assignedTo,
+    };
+  }
 
   // Helper methods
   bool get isOpen => status == 'OPEN';
@@ -106,6 +124,32 @@ Map<String, dynamic> toStatusUpdateJson() {
   bool get isClosed => status == 'CLOSED';
 
   bool get isAssigned => assignedTo != null;
+
+  // Verification helper methods
+  bool get requiresVerification => verificationStatus == 'pending';
+  bool get isVerified => verificationStatus == 'verified';
+  bool get isVerificationRejected => verificationStatus == 'rejected';
+  bool get isVerificationNotRequired => verificationStatus == 'not_required';
+
+  String get verificationStatusDisplay {
+    switch (verificationStatus) {
+      case 'not_required': return 'Not Required';
+      case 'pending': return 'Pending Verification';
+      case 'verified': return 'Verified';
+      case 'rejected': return 'Rejected';
+      default: return verificationStatus;
+    }
+  }
+
+  Color get verificationStatusColor {
+    switch (verificationStatus) {
+      case 'not_required': return Colors.grey;
+      case 'pending': return Colors.orange;
+      case 'verified': return Colors.green;
+      case 'rejected': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
 
   String get statusDisplay {
     switch (status) {
@@ -165,5 +209,9 @@ Map<String, dynamic> toStatusUpdateJson() {
 
   String get formattedUpdatedAt {
     return DateFormat('MMM dd, yyyy HH:mm').format(updatedAt);
+  }
+
+  String get formattedVerifiedAt {
+    return verifiedAt != null ? DateFormat('MMM dd, yyyy HH:mm').format(verifiedAt!) : 'Not verified';
   }
 }

@@ -167,7 +167,7 @@ class _TicketFormScreenState extends State<TicketFormScreen> {
         completion: widget.ticket?.completion ?? 0.0,
         isInternal: _isInternal,
         createdAt: widget.ticket?.createdAt ?? DateTime.now(),
-        updatedAt: DateTime.now(),
+        updatedAt: DateTime.now(), verificationStatus: '', verificationNotes: '',
       );
 
       if (widget.ticket == null) {
