@@ -1,7 +1,6 @@
 # Internal Inventory Tracker
 
-# Ticketing system and Screens
+# User managment 
 
-
-This is a how all the ticketing screens will look like 
+This  is a screens for Usermanagement just like in the api this is the screens only the Admin and IT can see and create
 
