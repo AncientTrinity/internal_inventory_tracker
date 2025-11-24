@@ -985,7 +985,7 @@ Future<void> _resetVerificationStatus(Ticket ticket) async {
       ),
     );
 
-    if (shouldReset != true) return; // FIXED: Changed shouldReopen to shouldReset
+    if (shouldReset != true) return;
 
     try {
       await ticketProvider.resetVerification(
@@ -1088,7 +1088,7 @@ Future<void> _resetVerificationStatus(Ticket ticket) async {
 
     print('✅ Verification reset successfully');
     
-    // Operation completed successfully - no UI feedback needed
+    // Operation completed successfully
     // The page refresh will show the updated state
     
   } catch (e) {

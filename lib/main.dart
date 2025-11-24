@@ -1,4 +1,3 @@
-//filename: lib/main.dart
 // filename: lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,7 +6,8 @@ import 'providers/asset_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/service_log_provider.dart';
-import 'providers/ticket_provider.dart'; // ADD THIS IMPORT
+import 'providers/ticket_provider.dart';
+import 'providers/user_provider.dart'; // ADD THIS IMPORT
 
 import 'screens/assets/asset_form_screen.dart';
 import 'screens/assets/asset_list_screen.dart';
@@ -21,6 +21,11 @@ import 'screens/splash_screen.dart';
 import 'screens/tickets/ticket_list_screen.dart';
 import 'screens/tickets/ticket_detail_screen.dart';
 import 'screens/tickets/ticket_form_screen.dart';
+
+// ADD USER MANAGEMENT IMPORTS
+import 'screens/users/user_list_screen.dart'; // ADD THIS
+import 'screens/users/user_form_screen.dart'; // ADD THIS
+import 'screens/users/user_detail_screen.dart'; // ADD THIS
 
 void main() {
   runApp(const InternalInventoryTrackerApp());
@@ -38,6 +43,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AssetProvider()),
         ChangeNotifierProvider(create: (context) => ServiceLogProvider()),
         ChangeNotifierProvider(create: (context) => TicketProvider()),
+        ChangeNotifierProvider(create: (context) => UserProvider()), // ADD THIS
       ],
       child: MaterialApp(
         title: 'Internal Inventory Tracker',
@@ -63,11 +69,14 @@ class InternalInventoryTrackerApp extends StatelessWidget {
           '/assets/add': (context) => const AssetFormScreen(),
           '/assets/edit': (context) => const AssetFormScreen(),
 
-          // tickets
+          // Tickets
           '/tickets': (context) => const TicketListScreen(),
           '/tickets/create': (context) => const TicketFormScreen(),
 
-
+          // User Management - REPLACE PLACEHOLDER WITH ACTUAL SCREENS
+          '/users': (context) => const UserListScreen(), // CHANGED THIS
+          '/users/create': (context) => const UserFormScreen(), // ADD THIS
+          '/users/edit': (context) => const UserFormScreen(), // ADD THIS
 
           '/notifications': (context) => const PlaceholderScreen(
                 title: 'Notifications',
@@ -86,11 +95,6 @@ class InternalInventoryTrackerApp extends StatelessWidget {
               ),
 
           // Admin Only Routes
-          '/users': (context) => const PlaceholderScreen(
-                title: 'User Management',
-                description:
-                    'Manage system users, roles, and permissions (Admin Only).',
-              ),
           '/roles': (context) => const PlaceholderScreen(
                 title: 'Role Management',
                 description:
@@ -165,6 +169,27 @@ class InternalInventoryTrackerApp extends StatelessWidget {
               if (id != null) {
                 return MaterialPageRoute(
                   builder: (context) => TicketDetailScreen(ticketId: id),
+                );
+              }
+            }
+          }
+
+          // Handle user edit with arguments - ADD THIS
+          if (settings.name == '/users/edit') {
+            final args = settings.arguments as Map<String, dynamic>;
+            return MaterialPageRoute(
+              builder: (context) => UserFormScreen(user: args['user']),
+            );
+          }
+
+          // Handle user details with dynamic ID - ADD THIS
+          if (settings.name?.startsWith('/users/') == true) {
+            final parts = settings.name!.split('/');
+            if (parts.length == 3) {
+              final id = int.tryParse(parts[2]);
+              if (id != null) {
+                return MaterialPageRoute(
+                  builder: (context) => UserDetailScreen(userId: id),
                 );
               }
             }
