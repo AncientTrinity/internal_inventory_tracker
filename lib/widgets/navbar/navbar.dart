@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart'; // ADD THIS IMPORT
+import '../../screens/notifications/notification_list_screen.dart'; // ADD THIS IMPORT
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -131,13 +133,7 @@ class AppDrawer extends StatelessWidget {
           title: 'My Support Tickets',
           onTap: () => _navigateTo(context, '/my-tickets'),
         ),
-        _buildDrawerItem(
-          context,
-          icon: Icons.notifications,
-          title: 'Notifications',
-          badgeCount: _getUnreadNotificationCount(user),
-          onTap: () => _navigateTo(context, '/notifications'),
-        ),
+        _buildNotificationDrawerItem(context), // UPDATED: Use the new notification item
         const Divider(),
         _buildDrawerItem(
           context,
@@ -256,13 +252,7 @@ class AppDrawer extends StatelessWidget {
 
       // Add common features
       items.addAll([
-        _buildDrawerItem(
-          context,
-          icon: Icons.notifications,
-          title: 'Notifications',
-          badgeCount: _getUnreadNotificationCount(user),
-          onTap: () => _navigateTo(context, '/notifications'),
-        ),
+        _buildNotificationDrawerItem(context), // UPDATED: Use the new notification item
         const Divider(),
         _buildDrawerItem(
           context,
@@ -296,6 +286,75 @@ class AppDrawer extends StatelessWidget {
     }
   }
 
+  // NEW: Special drawer item for notifications with real-time count
+  Widget _buildNotificationDrawerItem(BuildContext context) {
+    return Consumer<NotificationProvider>(
+      builder: (context, notificationProvider, child) {
+        return ListTile(
+          leading: Stack(
+            children: [
+              const Icon(Icons.notifications),
+              if (notificationProvider.unreadCount > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 12,
+                      minHeight: 12,
+                    ),
+                    child: Text(
+                      notificationProvider.unreadCount > 99 
+                          ? '99+' 
+                          : notificationProvider.unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          title: const Text('Notifications'),
+          trailing: notificationProvider.unreadCount > 0
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    notificationProvider.unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : null,
+          onTap: () {
+            Navigator.pop(context); // Close drawer
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const NotificationListScreen(),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // Helper method for navigation
   void _navigateTo(BuildContext context, String route) {
     Navigator.pop(context); // Close drawer
@@ -321,7 +380,7 @@ class AppDrawer extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Text(
-          badgeCount.toString(),
+          badgeCount > 99 ? '99+' : badgeCount.toString(),
           style: const TextStyle(
             color: Colors.white,
             fontSize: 12,
@@ -370,10 +429,5 @@ class AppDrawer extends StatelessWidget {
     }
   }
 
-  // Helper method to get unread notification count
-  int _getUnreadNotificationCount(User? user) {
-    // TODO: Implement actual notification count from provider
-    // For now, return 0
-    return 0;
-  }
+  // REMOVED: _getUnreadNotificationCount - Now using real provider data
 }

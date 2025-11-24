@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/ticket.dart';
 import '../../models/user.dart';
 import '../../models/asset.dart';
+import '../../providers/notification_provider.dart';
 import '../../providers/ticket_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/asset_provider.dart';
@@ -951,4 +952,18 @@ class _TicketListScreenState extends State<TicketListScreen> {
       ),
     );
   }
+
+  // Add this method to your Dashboard, Ticket screens, etc.
+Future<void> _refreshNotifications() async {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+  
+  if (authProvider.authData != null) {
+    await notificationProvider.loadUnreadCount(authProvider.authData!.token);
+  }
+}
+
+// Call this after creating a ticket, updating status, etc.
+// Example in your ticket creation method:
+//await _refreshNotifications(); // Add this after successful ticket creation
 }

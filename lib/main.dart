@@ -1,5 +1,6 @@
 // filename: lib/main.dart
 import 'package:flutter/material.dart';
+import 'screens/notifications/notification_list_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/asset_provider.dart';
@@ -8,6 +9,7 @@ import 'providers/dashboard_provider.dart';
 import 'providers/service_log_provider.dart';
 import 'providers/ticket_provider.dart';
 import 'providers/user_provider.dart'; // ADD THIS IMPORT
+import 'providers/notification_provider.dart'; //notifications
 
 import 'screens/assets/asset_form_screen.dart';
 import 'screens/assets/asset_list_screen.dart';
@@ -43,7 +45,8 @@ class InternalInventoryTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AssetProvider()),
         ChangeNotifierProvider(create: (context) => ServiceLogProvider()),
         ChangeNotifierProvider(create: (context) => TicketProvider()),
-        ChangeNotifierProvider(create: (context) => UserProvider()), // ADD THIS
+        ChangeNotifierProvider(create: (context) => UserProvider()), 
+        ChangeNotifierProvider(create: (context) => NotificationProvider()),
       ],
       child: MaterialApp(
         title: 'Internal Inventory Tracker',
@@ -78,11 +81,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
           '/users/create': (context) => const UserFormScreen(), // ADD THIS
           '/users/edit': (context) => const UserFormScreen(), // ADD THIS
 
-          '/notifications': (context) => const PlaceholderScreen(
-                title: 'Notifications',
-                description:
-                    'View and manage your system notifications and alerts.',
-              ),
+          '/notifications': (context) => const NotificationListScreen(),
           '/settings': (context) => const PlaceholderScreen(
                 title: 'Settings',
                 description:

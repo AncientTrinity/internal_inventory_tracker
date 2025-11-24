@@ -205,34 +205,34 @@ Future<void> sendCredentials(int userId, String token) async {
 }
 
 // Reset password
-  Future<void> resetPassword(int userId, String newPassword, bool sendEmail, String token) async {
-    try {
-      print('📡 Resetting password for user $userId');
-      print('🔐 New password length: ${newPassword.length}');
-      print('📧 Send email: $sendEmail');
+ Future<void> resetPassword(int userId, String newPassword, bool sendEmail, String token) async {
+  try {
+    print('📡 Resetting password for user $userId');
+    print('🔐 New password: $newPassword');
+    print('📧 Send email: $sendEmail');
+    
+    final response = await http.post(
+      Uri.parse('${ApiConfig.apiBaseUrl}/users/$userId/reset-password'),
+      headers: {
+        ...ApiConfig.headers,
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'new_password': newPassword,
+        'send_email': sendEmail,
+      }),
+    );
 
-      final response = await http.post(
-        Uri.parse('${ApiConfig.apiBaseUrl}/users/$userId/reset-password'),
-        headers: {
-          ...ApiConfig.headers,
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'new_password': newPassword,
-          'send_email': sendEmail,
-        }),
-      );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        print('✅ Password reset successfully');
-      } else {
-        throw Exception('HTTP ${response.statusCode}: ${response.body}');
-      }
-    } catch (e) {
-      print('❌ Failed to reset password: $e');
-      throw Exception('Failed to reset password: $e');
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      print('✅ Password reset successfully');
+    } else {
+      throw Exception('HTTP ${response.statusCode}: ${response.body}');
     }
+  } catch (e) {
+    print('❌ Failed to reset password: $e');
+    throw Exception('Failed to reset password: $e');
   }
+}
 
 // Send password change email
 Future<void> sendPasswordChangeEmail(int userId, String password, String token) async {

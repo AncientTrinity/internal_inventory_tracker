@@ -5,12 +5,14 @@ import 'package:provider/provider.dart';
 import '../../models/ticket.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../providers/ticket_provider.dart';
 import '../../widgets/common/app_drawer.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../models/asset.dart';
 import '../../screens/assets/asset_detail_screen.dart';
 import '../../screens/tickets/ticket_detail_screen.dart';
+import '../../screens/notifications/notification_list_screen.dart'; // ADD THIS IMPORT
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,6 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadDashboardData();
+    _loadInitialData();
   }
 
   Future<void> _loadDashboardData() async {
@@ -46,10 +49,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _loadInitialData() async {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+  
+  if (authProvider.authData != null) {
+    await notificationProvider.loadUnreadCount(authProvider.authData!.token);
+  }
+}
+
   Future<void> _refreshData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
     final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false); // ADD THIS
 
     if (authProvider.authData != null) {
       // Pass current user to dashboard provider
@@ -58,51 +71,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         authProvider.currentUser, // ADD THIS
       );
       await ticketProvider.loadTickets(authProvider.authData!.token);
+      await notificationProvider.loadUnreadCount(authProvider.authData!.token); // ADD THIS
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final dashboardProvider = Provider.of<DashboardProvider>(context);
-    final currentUser = authProvider.currentUser;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: dashboardProvider.isLoading ? null : _refreshData,
-            tooltip: 'Refresh Data',
-          ),
-        ],
-      ),
-      drawer: const AppDrawer(),
-      body: dashboardProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-        onRefresh: _refreshData,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Show agent-specific dashboard or full dashboard based on role
-              if (currentUser?.isAgent == true)
-                _buildAgentDashboard(dashboardProvider, currentUser!)
-              else
-                _buildFullDashboard(context, dashboardProvider, authProvider),
-            ],
-          ),
-        ),
-      ),
+  // ADD THIS: Build notification bell with badge
+  Widget _buildNotificationBell() {
+    return Consumer<NotificationProvider>(
+      builder: (context, notificationProvider, child) {
+        return Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationListScreen(),
+                  ),
+                );
+              },
+              tooltip: 'Notifications',
+            ),
+            if (notificationProvider.unreadCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 14,
+                    minHeight: 14,
+                  ),
+                  child: Text(
+                    notificationProvider.unreadCount > 99 
+                        ? '99+' 
+                        : notificationProvider.unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
-
+  
   // Agent-Specific Dashboard
   Widget _buildAgentDashboard(DashboardProvider dashboardProvider, User currentUser) {
     return Column(
@@ -134,6 +157,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Full Dashboard for Admin/IT/Staff
   Widget _buildFullDashboard(BuildContext context, DashboardProvider dashboardProvider, AuthProvider authProvider) {
+
+     // Check if there's any data to show
+  final hasData = dashboardProvider.totalAssets > 0 || 
+                  dashboardProvider.totalTickets > 0 ||
+                  dashboardProvider.recentAssets.isNotEmpty ||
+                  dashboardProvider.recentTickets.isNotEmpty;
+
+  if (!hasData) {
+    return _buildEmptyDashboardState(
+      'Welcome to your Dashboard!',
+      subtitle: 'Start by adding assets or creating tickets to see analytics here.',
+    );
+  }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -282,7 +318,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: ListTile(
         leading: Icon(
           _getAssetTypeIcon(asset.assetType),
-          color: asset.statusColor,
+          color: _getAssetStatusColor(asset.status),
         ),
         title: Text(asset.internalId),
         subtitle: Text('${asset.manufacturer} ${asset.model} • ${asset.statusDisplay}'),
@@ -355,7 +391,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         title: Text(ticket.title),
-        subtitle: Text('${ticket.statusDisplay} • ${ticket.priorityDisplay}'),
+        subtitle: Text('${_getTicketStatusDisplay(ticket.status)} • ${_getTicketPriorityDisplay(ticket.priority)}'),
         trailing: Text(
           ticket.completion.toInt().toString() + '%',
           style: TextStyle(
@@ -939,21 +975,6 @@ Widget _buildEmptyActivityItem() {
     );
   }
 
-  // Helper method to get ticket status color
-  Color _getTicketStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'open':
-        return Colors.orange;
-      case 'in_progress':
-        return Colors.blue;
-      case 'resolved':
-        return Colors.green;
-      case 'closed':
-        return Colors.grey;
-      default:
-        return Colors.blue;
-    }
-  }
 
 // Add this to your dashboard_screen.dart to show ticket statistics:
 
@@ -1140,4 +1161,252 @@ Widget _buildEmptyActivityItem() {
       ],
     );
   }
+
+// Add these missing methods to your dashboard_screen.dart
+
+// Helper method to get asset status color
+Color _getAssetStatusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'available':
+      return Colors.green;
+    case 'assigned':
+      return Colors.blue;
+    case 'in_repair':
+      return Colors.orange;
+    case 'retired':
+      return Colors.grey;
+    default:
+      return Colors.blue;
+  }
+}
+
+// Helper method to get asset status display text
+String _getAssetStatusDisplay(String status) {
+  switch (status.toLowerCase()) {
+    case 'available':
+      return 'Available';
+    case 'assigned':
+      return 'Assigned';
+    case 'in_repair':
+      return 'In Repair';
+    case 'retired':
+      return 'Retired';
+    default:
+      return status;
+  }
+}
+
+// Helper method to get ticket priority display
+String _getTicketPriorityDisplay(String priority) {
+  switch (priority.toLowerCase()) {
+    case 'low':
+      return 'Low';
+    case 'normal':
+      return 'Normal';
+    case 'high':
+      return 'High';
+    case 'critical':
+      return 'Critical';
+    default:
+      return priority;
+  }
+}
+
+// Helper method to get ticket status display
+String _getTicketStatusDisplay(String status) {
+  switch (status.toLowerCase()) {
+    case 'open':
+      return 'Open';
+    case 'received':
+      return 'Received';
+    case 'in_progress':
+      return 'In Progress';
+    case 'resolved':
+      return 'Resolved';
+    case 'closed':
+      return 'Closed';
+    default:
+      return status;
+  }
+}
+
+// Helper method to get ticket status color
+Color _getTicketStatusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'open':
+      return Colors.orange;
+    case 'received':
+      return Colors.blue;
+    case 'in_progress':
+      return Colors.purple;
+    case 'resolved':
+      return Colors.green;
+    case 'closed':
+      return Colors.grey;
+    default:
+      return Colors.blue;
+  }
+}
+
+// Add this method to handle empty states gracefully
+Widget _buildEmptyDashboardState(String message, {String? subtitle}) {
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.dashboard,
+          size: 64,
+          color: Colors.grey[400],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          message,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+// Add error state widget
+Widget _buildErrorState(String error) {
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.error_outline,
+          size: 64,
+          color: Colors.red[400],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Failed to load dashboard',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          error,
+          style: TextStyle(
+            color: Colors.grey[600],
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: _refreshData,
+          child: const Text('Try Again'),
+        ),
+      ],
+    ),
+  );
+}
+
+// Update your build method to handle error states
+@override
+Widget build(BuildContext context) {
+  final authProvider = Provider.of<AuthProvider>(context);
+  final dashboardProvider = Provider.of<DashboardProvider>(context);
+  final currentUser = authProvider.currentUser;
+
+  // Handle loading state
+  if (dashboardProvider.isLoading) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dashboard'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      drawer: const AppDrawer(),
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  // Handle error state
+  if (dashboardProvider.error != null) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dashboard'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshData,
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
+      drawer: const AppDrawer(),
+      body: _buildErrorState(dashboardProvider.error!),
+    );
+  }
+
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text('Dashboard'),
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      actions: [
+        _buildNotificationBell(),
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _refreshData,
+          tooltip: 'Refresh Data',
+        ),
+      ],
+    ),
+    drawer: const AppDrawer(),
+    body: RefreshIndicator(
+      onRefresh: _refreshData,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (currentUser?.isAgent == true)
+              _buildAgentDashboard(dashboardProvider, currentUser!)
+            else
+              _buildFullDashboard(context, dashboardProvider, authProvider),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// Add this method to your Dashboard, Ticket screens, etc.
+Future<void> _refreshNotifications() async {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+  
+  if (authProvider.authData != null) {
+    await notificationProvider.loadUnreadCount(authProvider.authData!.token);
+  }
+}
+
+// Call this after creating a ticket, updating status, etc.
+// Example in your ticket creation method:
+ // Add this after successful ticket creation
+
 }

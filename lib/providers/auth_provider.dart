@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:internal_inventory_tracker/providers/notification_provider.dart';
 import '../models/auth.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
@@ -269,4 +270,6 @@ class AuthProvider with ChangeNotifier {
       default: return 'User';
     }
   }
+
+
 }

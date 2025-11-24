@@ -1,6 +1,9 @@
 // filename: lib/screens/tickets/user_selection_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/user.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 
 class UserSelectionDialog extends StatefulWidget {
   final List<User> users;
@@ -95,4 +98,18 @@ class _UserSelectionDialogState extends State<UserSelectionDialog> {
       ],
     );
   }
+
+  // Add this method to your Dashboard, Ticket screens, etc.
+Future<void> _refreshNotifications() async {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+  
+  if (authProvider.authData != null) {
+    await notificationProvider.loadUnreadCount(authProvider.authData!.token);
+  }
+}
+
+// Call this after creating a ticket, updating status, etc.
+// Example in your ticket creation method:
+//await _refreshNotifications(); // Add this after successful ticket creation
 }

@@ -65,78 +65,91 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     await _loadUserDetails();
   }
 
-  void _showActionMenu() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final currentUser = authProvider.currentUser;
 
-    if (_user == null || currentUser == null) return;
+void _showActionMenu() {
+  showModalBottomSheet(
+    context: context,
+    builder: (context) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.refresh),
+          title: const Text('Refresh'),
+          onTap: () {
+            Navigator.pop(context);
+            _refreshUser();
+          },
+        ),
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Refresh'),
-            onTap: () {
-              Navigator.pop(context);
-              _refreshUser();
-            },
-          ),
+        // 🔐 RESET PASSWORD (Set specific password + optional email)
+        ListTile(
+          leading: const Icon(Icons.lock_reset),
+          title: const Text('Reset Password'),
+          subtitle: const Text('Set new password & optionally email user'),
+          onTap: () {
+            Navigator.pop(context);
+            _resetPassword();
+          },
+        ),
 
-          // Edit User (Admin/IT only)
-          if (currentUser.isAdmin || currentUser.isITStaff)
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit User'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => UserFormScreen(user: _user),
-                  ),
-                );
-              },
-            ),
+        // 📧 SEND CURRENT CREDENTIALS (Username only + instructions)
+        ListTile(
+          leading: const Icon(Icons.email),
+          title: const Text('Send Current Credentials'),
+          subtitle: const Text('Email username & password reset instructions'),
+          onTap: () {
+            Navigator.pop(context);
+            _sendCurrentCredentials();
+          },
+        ),
 
-          // Send Credentials (Admin/IT only)
-          if (currentUser.isAdmin || currentUser.isITStaff)
-            ListTile(
-              leading: const Icon(Icons.email),
-              title: const Text('Send Credentials'),
-              onTap: () {
-                Navigator.pop(context);
-                _sendCredentials();
-              },
-            ),
+        // ... other actions ...
+      ],
+    ),
+  );
+}
 
-          // Reset Password (Admin/IT only)
-          if (currentUser.isAdmin || currentUser.isITStaff)
-            ListTile(
-              leading: const Icon(Icons.lock_reset),
-              title: const Text('Reset Password'),
-              onTap: () {
-                Navigator.pop(context);
-                _resetPassword();
-              },
-            ),
+// Send current credentials (username + instructions)
+Future<void> _sendCurrentCredentials() async {
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-          // Delete User (Admin only)
-          if (currentUser.isAdmin && _user!.id != currentUser.id) // Can't delete yourself
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Delete User', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteUser();
-              },
-            ),
-        ],
-      ),
-    );
-  }
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Send Current Credentials?'),
+      content: const Text('This will email the user their current username and instructions for password reset if needed. Their password will NOT be changed.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () async {
+            Navigator.pop(context);
+            try {
+              await userProvider.sendCredentials(_user!.id, authProvider.authData!.token);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Current credentials sent via email'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to send credentials: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: const Text('Send Credentials'),
+        ),
+      ],
+    ),
+  );
+}
 
  Future<void> _sendCredentials() async {
   final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -170,59 +183,44 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   }
 }
 
-  Future<void> _resetPassword() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+ // In user_detail_screen.dart - UPDATE the _resetPassword method
+Future<void> _resetPassword() async {
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Show dialog to get new password from Admin/IT
-    final newPassword = await showDialog<String>(
-      context: context,
-      builder: (context) => PasswordResetDialog(),
-    );
+  // Show dialog to get new password from Admin/IT
+  final result = await showDialog<Map<String, dynamic>>(
+    context: context,
+    builder: (context) => PasswordResetWithEmailDialog(),
+  );
 
-    if (newPassword != null && newPassword.isNotEmpty) {
-      try {
-        // Ask if they want to send email notification
-        final sendEmail = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Send Email Notification?'),
-            content: const Text('Do you want to send an email notification to the user about this password change?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('No'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Yes'),
-              ),
-            ],
+  if (result != null && result['password'] != null) {
+    final newPassword = result['password'] as String;
+    final sendEmail = result['sendEmail'] as bool;
+
+    try {
+      // ✅ Now resetPassword accepts both password and sendEmail flag
+      await userProvider.resetPassword(_user!.id, newPassword, sendEmail, authProvider.authData!.token);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(sendEmail 
+            ? 'Password reset to "$newPassword" and user notified via email'
+            : 'Password reset to "$newPassword" successfully'
           ),
-        ) ?? false;
-
-        // ✅ CORRECTED: Now passing 4 parameters
-        await userProvider.resetPassword(_user!.id, newPassword, sendEmail, authProvider.authData!.token);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(sendEmail
-                ? 'Password reset successfully and user notified via email'
-                : 'Password reset successfully'
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to reset password: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to reset password: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
+}
 
   Future<void> _deleteUser() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -547,6 +545,135 @@ class _PasswordResetDialogState extends State<PasswordResetDialog> {
           onPressed: () {
             if (_formKey.currentState!.validate()) {
               Navigator.pop(context, _passwordController.text);
+            }
+          },
+          child: const Text('Reset Password'),
+        ),
+      ],
+    );
+  }
+}
+
+  class PasswordResetWithEmailDialog extends StatefulWidget {
+  const PasswordResetWithEmailDialog({super.key});
+
+  @override
+  State<PasswordResetWithEmailDialog> createState() => _PasswordResetWithEmailDialogState();
+}
+
+
+class _PasswordResetWithEmailDialogState extends State<PasswordResetWithEmailDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _sendEmail = true;
+
+  String? _passwordValidator(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    return null;
+  }
+
+  String? _confirmPasswordValidator(String? value) {
+    if (value != _passwordController.text) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Reset Password'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Set a new password for this user:'),
+            const SizedBox(height: 16),
+            
+            // Password field
+            TextFormField(
+              controller: _passwordController,
+              decoration: const InputDecoration(
+                labelText: 'New Password',
+                border: OutlineInputBorder(),
+                hintText: 'Enter the specific password...',
+              ),
+              obscureText: true,
+              validator: _passwordValidator,
+            ),
+            const SizedBox(height: 12),
+            
+            // Confirm password
+            TextFormField(
+              controller: _confirmPasswordController,
+              decoration: const InputDecoration(
+                labelText: 'Confirm Password',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+              validator: _confirmPasswordValidator,
+            ),
+            const SizedBox(height: 16),
+            
+            // Email option
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CheckboxListTile(
+                      title: const Text('Send email notification'),
+                      subtitle: const Text('User will receive an email with the new password'),
+                      value: _sendEmail,
+                      onChanged: (value) {
+                        setState(() {
+                          _sendEmail = value ?? true;
+                        });
+                      },
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    if (_sendEmail)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Email will include: "Your new password is: [password]"',
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pop(context, {
+                'password': _passwordController.text,
+                'sendEmail': _sendEmail,
+              });
             }
           },
           child: const Text('Reset Password'),
