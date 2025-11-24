@@ -796,7 +796,7 @@ Widget _buildEmptyActivityItem() {
                     'System Analytics',
                     Icons.analytics,
                     () {
-                      Navigator.pushNamed(context, '/analytics');
+                      Navigator.pushNamed(context, '/reports');
                     },
                   ),
                 ],

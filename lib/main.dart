@@ -17,6 +17,7 @@ import 'screens/assets/my_assets_sceen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/placeholder/placeholder_screen.dart';
+import 'screens/reports/reports_screen.dart';
 import 'screens/splash_screen.dart';
 
 // ADD THESE TICKET SCREEN IMPORTS
@@ -29,6 +30,8 @@ import 'screens/users/user_list_screen.dart'; // ADD THIS
 import 'screens/users/user_form_screen.dart'; // ADD THIS
 import 'screens/users/user_detail_screen.dart'; // ADD THIS
 
+// Replace the main function and InternalInventoryTrackerApp class
+import 'providers/reports_provider.dart';
 void main() {
   runApp(const InternalInventoryTrackerApp());
 }
@@ -47,6 +50,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => TicketProvider()),
         ChangeNotifierProvider(create: (context) => UserProvider()), 
         ChangeNotifierProvider(create: (context) => NotificationProvider()),
+        ChangeNotifierProvider<ReportsProvider>(create: (context) => ReportsProvider()),
       ],
       child: MaterialApp(
         title: 'Internal Inventory Tracker',
@@ -144,10 +148,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
               ),
 
           // Common Reports
-          '/reports': (context) => const PlaceholderScreen(
-                title: 'Reports',
-                description: 'Generate and view system reports.',
-              ),
+          '/reports': (context) => const ReportsScreen(),
         },
 
         // Add this onGenerateRoute method to handle arguments:
