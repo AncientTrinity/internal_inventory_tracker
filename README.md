@@ -1,6 +1,6 @@
 # Internal Inventory Tracker
 
-# Notifications
+# Reports and analytics
 
-This is the developent of the notification system lives
+This is the develope=ment where the report and analytics live
 
