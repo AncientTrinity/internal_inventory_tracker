@@ -1,6 +1,6 @@
 # Internal Inventory Tracker
 
-# Reports and analytics
+# Other Apis and improvements
 
-This is the develope=ment where the report and analytics live
+This is a github repo dedicated for some minor improvements and adding other api like the wweather api
 
