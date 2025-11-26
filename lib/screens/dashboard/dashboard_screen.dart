@@ -12,7 +12,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../models/asset.dart';
 import '../../screens/assets/asset_detail_screen.dart';
 import '../../screens/tickets/ticket_detail_screen.dart';
-import '../../screens/notifications/notification_list_screen.dart'; // ADD THIS IMPORT
+import '../../screens/notifications/notification_list_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -27,6 +27,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _loadDashboardData();
     _loadInitialData();
+     WidgetsBinding.instance.addPostFrameCallback((_) {
+    print('🌤️ Dashboard: Loading weather data...');
+    _loadDashboardData();
+  });
   }
 
   Future<void> _loadDashboardData() async {
@@ -150,6 +154,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Empty state if no assets or tickets
         if (dashboardProvider.agentAssets.isEmpty && dashboardProvider.agentTickets.isEmpty)
           _buildAgentEmptyState(),
+
+          _buildWeatherCard(),
+          const SizedBox(height: 20),
         
       ],
     );
@@ -193,6 +200,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (dashboardProvider.assetsNeedingService.isNotEmpty)
           _buildAssetsNeedingServiceSection(context, dashboardProvider),
 
+        const SizedBox(height: 20),
+
+        _buildWeatherCard(),
         const SizedBox(height: 20),
 
         // Quick Actions Section
@@ -440,7 +450,198 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+   
+   //for weather card
+ Widget _buildWeatherCard() {
+  final dashboardProvider = Provider.of<DashboardProvider>(context);
+  final weatherData = dashboardProvider.weatherData;
 
+  if (dashboardProvider.isLoading && weatherData == null) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            const CircularProgressIndicator(strokeWidth: 2),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Loading weather...', style: Theme.of(context).textTheme.titleMedium),
+                Text('Fetching current conditions', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  if (weatherData == null) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off, color: Colors.grey[400]),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Weather unavailable', style: Theme.of(context).textTheme.titleMedium),
+                Text('Check connection', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  return Card(
+    elevation: 2,
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with location and update time
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Current Weather',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                weatherData.iconUrl ?? '🌤️',
+                style: const TextStyle(fontSize: 28),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            weatherData.location,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Main weather info
+          Row(
+            children: [
+              // Temperature (large and prominent)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${weatherData.temperature.toStringAsFixed(1)}°C',
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  Text(
+                    weatherData.condition,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Feels like ${weatherData.feelsLike.toStringAsFixed(1)}°C',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              
+              // Weather metrics
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.water_drop, size: 16, color: Colors.blue[700]),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${weatherData.humidity.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Humidity',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.air, size: 16, color: Colors.blue[700]),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${weatherData.windSpeed.toStringAsFixed(1)} km/h',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Wind',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          
+          // Update time
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'Updated: ${weatherData.updateTime}',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   // ========== HELPER METHODS ==========
 
   IconData _getAssetTypeIcon(String assetType) {

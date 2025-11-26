@@ -6,18 +6,22 @@ import 'package:flutter/foundation.dart';
 import '../models/asset.dart';
 import '../models/ticket.dart';
 import '../models/user.dart';
+import '../models/weather.dart';
 import '../services/dashboard_service.dart';
 import '../services/asset_service.dart';
 import '../services/ticket_service.dart';
+import '../services/weather_service.dart';
 
 class DashboardProvider with ChangeNotifier {
   final DashboardService _dashboardService = DashboardService();
   final AssetService _assetService = AssetService();
   final TicketService _ticketService = TicketService();
+  final WeatherService _weatherService = WeatherService();
 
   // Statistics data
   Map<String, dynamic>? _assetStats;
   Map<String, dynamic>? _ticketStats;
+  WeatherData? _weatherData;
   List<Asset> _recentAssets = [];
   List<Ticket> _recentTickets = [];
   List<Asset> _assetsNeedingService = [];
@@ -40,6 +44,8 @@ class DashboardProvider with ChangeNotifier {
   List<Ticket> get recentTickets => _recentTickets;
 
   List<Asset> get assetsNeedingService => _assetsNeedingService;
+
+  WeatherData? get weatherData => _weatherData;
 
   // Agent-specific getters
   List<Asset> get agentAssets => _agentAssets;
@@ -99,6 +105,13 @@ class DashboardProvider with ChangeNotifier {
       } else {
         // Load admin/IT/Staff dashboard data
         await _loadFullDashboardData(token);
+      }
+
+       try {
+        _weatherData = await _weatherService.getDefaultWeather();
+      } catch (e) {
+        print('Weather load failed: $e');
+        // Don't fail dashboard if weather fails
       }
 
       _isLoading = false;

@@ -1,5 +1,6 @@
 // filename: lib/main.dart
 import 'package:flutter/material.dart';
+import 'providers/weather_provider.dart';
 import 'screens/notifications/notification_list_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -51,6 +52,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => UserProvider()), 
         ChangeNotifierProvider(create: (context) => NotificationProvider()),
         ChangeNotifierProvider<ReportsProvider>(create: (context) => ReportsProvider()),
+        ChangeNotifierProvider(create: (context) => WeatherProvider()),
       ],
       child: MaterialApp(
         title: 'Internal Inventory Tracker',
@@ -81,9 +83,9 @@ class InternalInventoryTrackerApp extends StatelessWidget {
           '/tickets/create': (context) => const TicketFormScreen(),
 
           // User Management - REPLACE PLACEHOLDER WITH ACTUAL SCREENS
-          '/users': (context) => const UserListScreen(), // CHANGED THIS
-          '/users/create': (context) => const UserFormScreen(), // ADD THIS
-          '/users/edit': (context) => const UserFormScreen(), // ADD THIS
+          '/users': (context) => const UserListScreen(), 
+          '/users/create': (context) => const UserFormScreen(), 
+          '/users/edit': (context) => const UserFormScreen(), 
 
           '/notifications': (context) => const NotificationListScreen(),
           '/settings': (context) => const PlaceholderScreen(
@@ -98,27 +100,12 @@ class InternalInventoryTrackerApp extends StatelessWidget {
               ),
 
           // Admin Only Routes
-          '/roles': (context) => const PlaceholderScreen(
-                title: 'Role Management',
-                description:
-                    'Configure system roles and permissions (Admin Only).',
-              ),
-          '/analytics': (context) => const PlaceholderScreen(
-                title: 'System Analytics',
-                description:
-                    'View system-wide analytics and performance metrics (Admin Only).',
-              ),
+          '/roles': (context) => const UserFormScreen(), 
+          '/analytics': (context) => const ReportsScreen(),
 
           // IT Staff Routes
-          '/ticket-assignment': (context) => const PlaceholderScreen(
-                title: 'Ticket Assignment',
-                description:
-                    'Assign and manage ticket assignments for IT staff.',
-              ),
-          '/service-management': (context) => const PlaceholderScreen(
-                title: 'Service Management',
-                description: 'Manage asset service schedules and maintenance.',
-              ),
+          '/ticket-assignment': (context) => const TicketListScreen(),
+          '/service-management': (context) => const AssetFormScreen(),
 
           // Staff/Team Lead Routes
           '/my-team': (context) => const PlaceholderScreen(
@@ -126,26 +113,13 @@ class InternalInventoryTrackerApp extends StatelessWidget {
                 description:
                     'View and manage your team members and their assignments.',
               ),
-          '/ticket-verification': (context) => const PlaceholderScreen(
-                title: 'Ticket Verification',
-                description: 'Verify and close completed support tickets.',
-              ),
-
+          '/ticket-verification': (context) => const TicketListScreen(),
           // Agent Routes
-          '/my-tickets': (context) => const PlaceholderScreen(
-                title: 'My Tickets',
-                description: 'View and manage tickets assigned to you.',
-              ),
+          '/my-tickets': (context) => const TicketListScreen(),
           '/my-assets': (context) => const MyAssetsScreen(),
           // Viewer Routes
-          '/view-assets': (context) => const PlaceholderScreen(
-                title: 'View Assets',
-                description: 'View company assets (Read-only access).',
-              ),
-          '/view-tickets': (context) => const PlaceholderScreen(
-                title: 'View Tickets',
-                description: 'View support tickets (Read-only access).',
-              ),
+          '/view-assets': (context) => const AssetListScreen(),
+          '/view-tickets': (context) => const TicketListScreen(),
 
           // Common Reports
           '/reports': (context) => const ReportsScreen(),
