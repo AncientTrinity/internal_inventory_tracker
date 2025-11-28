@@ -1,6 +1,6 @@
 # Internal Inventory Tracker
 
-#Dashboard Statistics with Real API Data
+# Other Apis and improvements
 
-This is just a early version of the gui with statitics
+This is a github repo dedicated for some minor improvements and adding other api like the wweather api
 

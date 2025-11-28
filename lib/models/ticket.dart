@@ -1,61 +1,217 @@
+// filename: lib/models/ticket.dart
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 class Ticket {
   final int id;
-  final String ticketNum;
   final String title;
   final String description;
-  final String type;
-  final String priority;
-  final String status;
-  final int completion;
-  final int? createdBy;
+  final String status; // OPEN, RECEIVED, IN_PROGRESS, RESOLVED, CLOSED
+  final String type; // it_help, activation, deactivation, transition
+  final String priority; // low, normal, high, critical
+  final int createdBy;
   final int? assignedTo;
   final int? assetId;
+  final double completion; // 0-100 percentage
   final bool isInternal;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final DateTime? closedAt;
+  final String? assignedToName;
+  final String? assignedToEmail;
+  final String? createdByName;
+  final String? assetInternalId;
+
+  // Verification fields
+  final String verificationStatus; // not_required, pending, verified, rejected
+  final String verificationNotes;
+  final int? verifiedBy;
+  final DateTime? verifiedAt;
+  final String? verifiedByName;
 
   Ticket({
     required this.id,
-    required this.ticketNum,
     required this.title,
     required this.description,
+    required this.status,
     required this.type,
     required this.priority,
-    required this.status,
-    required this.completion,
-    this.createdBy,
+    required this.createdBy,
     this.assignedTo,
     this.assetId,
+    required this.completion,
     required this.isInternal,
     required this.createdAt,
     required this.updatedAt,
-    this.closedAt,
+    this.assignedToName,
+    this.assignedToEmail,
+    this.createdByName,
+    this.assetInternalId,
+    required this.verificationStatus,
+    required this.verificationNotes,
+    this.verifiedBy,
+    this.verifiedAt,
+    this.verifiedByName,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
+    // Convert status to uppercase for consistency in Flutter
+    String status = json['status']?.toString().toUpperCase() ?? 'OPEN';
+    
+    // Handle the "in_progress" case specifically
+    if (status == 'IN_PROGRESS') {
+      status = 'IN_PROGRESS';
+    } else if (status == 'OPEN') {
+      status = 'OPEN';
+    } else if (status == 'RECEIVED') {
+      status = 'RECEIVED';
+    } else if (status == 'RESOLVED') {
+      status = 'RESOLVED';
+    } else if (status == 'CLOSED') {
+      status = 'CLOSED';
+    }
+
     return Ticket(
       id: json['id'],
-      ticketNum: json['ticket_num'],
       title: json['title'],
       description: json['description'],
-      type: json['type'],
-      priority: json['priority'],
-      status: json['status'],
-      completion: json['completion'],
+      status: status,
+      type: json['type'] ?? 'it_help',
+      priority: json['priority'] ?? 'normal',
       createdBy: json['created_by'],
       assignedTo: json['assigned_to'],
       assetId: json['asset_id'],
-      isInternal: json['is_internal'],
+      completion: (json['completion'] ?? 0.0).toDouble(),
+      isInternal: json['is_internal'] ?? false,
       createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
-      closedAt: json['closed_at'] != null 
-          ? DateTime.parse(json['closed_at']) 
-          : null,
+      updatedAt: DateTime.parse(json['updated_at'] ?? json['created_at']),
+      assignedToName: json['assigned_to_user']?['full_name'],
+      assignedToEmail: json['assigned_to_user']?['email'],
+      createdByName: json['created_by_user']?['full_name'],
+      assetInternalId: json['asset']?['internal_id'],
+      // Verification fields
+      verificationStatus: json['verification_status'] ?? 'not_required',
+      verificationNotes: json['verification_notes'] ?? '',
+      verifiedBy: json['verified_by'],
+      verifiedAt: json['verified_at'] != null ? DateTime.parse(json['verified_at']) : null,
+      verifiedByName: json['verified_by_user']?['full_name'],
     );
   }
 
-  bool get isOpen => status == 'open';
-  bool get isResolved => status == 'resolved';
-  bool get isClosed => status == 'closed';
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'description': description,
+      'type': type,
+      'priority': priority,
+      'asset_id': assetId,
+      'is_internal': isInternal,
+    };
+  }
+
+  Map<String, dynamic> toStatusUpdateJson() {
+    return {
+      'status': status.toLowerCase(), // Send lowercase to Go API
+      'completion': completion,
+      'assigned_to': assignedTo,
+    };
+  }
+
+  // Helper methods
+  bool get isOpen => status == 'OPEN';
+  bool get isReceived => status == 'RECEIVED';
+  bool get isInProgress => status == 'IN_PROGRESS';
+  bool get isResolved => status == 'RESOLVED';
+  bool get isClosed => status == 'CLOSED';
+
+  bool get isAssigned => assignedTo != null;
+
+  // Verification helper methods
+  bool get requiresVerification => verificationStatus == 'pending';
+  bool get isVerified => verificationStatus == 'verified';
+  bool get isVerificationRejected => verificationStatus == 'rejected';
+  bool get isVerificationNotRequired => verificationStatus == 'not_required';
+
+  String get verificationStatusDisplay {
+    switch (verificationStatus) {
+      case 'not_required': return 'Not Required';
+      case 'pending': return 'Pending Verification';
+      case 'verified': return 'Verified';
+      case 'rejected': return 'Rejected';
+      default: return verificationStatus;
+    }
+  }
+
+  Color get verificationStatusColor {
+    switch (verificationStatus) {
+      case 'not_required': return Colors.grey;
+      case 'pending': return Colors.orange;
+      case 'verified': return Colors.green;
+      case 'rejected': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
+  String get statusDisplay {
+    switch (status) {
+      case 'OPEN': return 'Open';
+      case 'RECEIVED': return 'Received';
+      case 'IN_PROGRESS': return 'In Progress';
+      case 'RESOLVED': return 'Resolved';
+      case 'CLOSED': return 'Closed';
+      default: return status;
+    }
+  }
+
+  String get typeDisplay {
+    switch (type) {
+      case 'it_help': return 'IT Help';
+      case 'activation': return 'Activation';
+      case 'deactivation': return 'Deactivation';
+      case 'transition': return 'Transition';
+      default: return type;
+    }
+  }
+
+  String get priorityDisplay {
+    switch (priority) {
+      case 'low': return 'Low';
+      case 'normal': return 'Normal';
+      case 'high': return 'High';
+      case 'critical': return 'Critical';
+      default: return priority;
+    }
+  }
+
+  Color get statusColor {
+    switch (status) {
+      case 'OPEN': return Colors.orange;
+      case 'RECEIVED': return Colors.blue;
+      case 'IN_PROGRESS': return Colors.purple;
+      case 'RESOLVED': return Colors.green;
+      case 'CLOSED': return Colors.grey;
+      default: return Colors.grey;
+    }
+  }
+
+  Color get priorityColor {
+    switch (priority) {
+      case 'low': return Colors.green;
+      case 'normal': return Colors.blue;
+      case 'high': return Colors.orange;
+      case 'critical': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
+  String get formattedCreatedAt {
+    return DateFormat('MMM dd, yyyy HH:mm').format(createdAt);
+  }
+
+  String get formattedUpdatedAt {
+    return DateFormat('MMM dd, yyyy HH:mm').format(updatedAt);
+  }
+
+  String get formattedVerifiedAt {
+    return verifiedAt != null ? DateFormat('MMM dd, yyyy HH:mm').format(verifiedAt!) : 'Not verified';
+  }
 }

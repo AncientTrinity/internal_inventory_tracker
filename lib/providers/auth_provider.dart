@@ -1,25 +1,133 @@
+// filename: lib/providers/auth_provider.dart
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
-
+import 'package:http/http.dart' as http;
+import 'package:internal_inventory_tracker/providers/notification_provider.dart';
 import '../models/auth.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/secure_storage_service.dart';
+import '../utils/api_config.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   
   AuthData? _authData;
   User? _currentUser;
+  List<User> _users = [];
   bool _isLoading = false;
   String? _error;
+  bool _loadingUsers = false;
 
   AuthData? get authData => _authData;
   User? get currentUser => _currentUser;
+  List<User> get users => _users;
   bool get isLoading => _isLoading;
+  bool get loadingUsers => _loadingUsers;
   String? get error => _error;
   bool get isLoggedIn => _authData != null && !_authData!.isExpired;
 
-  // Check existing authentication on app start
+  // Load all users for assignment (requires users:read permission)
+  Future<void> loadUsers() async {
+    if (!isLoggedIn) {
+      throw Exception('Not authenticated');
+    }
+
+    _loadingUsers = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final token = _authData!.token;
+      
+      final response = await http.get(
+        Uri.parse('${ApiConfig.apiBaseUrl}/users'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('🔍 Users API Response: ${response.statusCode}');
+      print('🔍 Users API URL: ${ApiConfig.apiBaseUrl}/users');
+      print('🔍 Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final dynamic responseData = json.decode(response.body);
+        print('🔍 Users Response Data Type: ${responseData.runtimeType}');
+        
+        List<dynamic> usersList;
+        
+        // Handle the response format - it's a raw array based on your curl test
+        if (responseData is List) {
+          // This is what your API returns - direct array
+          print('✅ API returns raw array format');
+          usersList = responseData;
+        } else if (responseData is Map && responseData.containsKey('data')) {
+          // Some APIs wrap in { "data": [...] }
+          print('✅ API returns wrapped data format');
+          usersList = responseData['data'];
+        } else if (responseData is Map && responseData.containsKey('users')) {
+          // Some APIs wrap in { "users": [...] }
+          print('✅ API returns wrapped users format');
+          usersList = responseData['users'];
+        } else {
+          // Fallback
+          print('⚠️ Unknown response format, trying to handle as array');
+          usersList = responseData is List ? responseData : [responseData];
+        }
+        
+        print('🔍 Parsed users list length: ${usersList.length}');
+        
+        // Convert to User objects
+        _users = usersList.map((userData) {
+          print('🔍 Processing user data: $userData');
+          try {
+            return User.fromJson(userData);
+          } catch (e) {
+            print('❌ Error parsing user: $userData, error: $e');
+            rethrow;
+          }
+        }).toList();
+        
+        _error = null;
+        
+        print('✅ Successfully loaded ${_users.length} users');
+        for (final user in _users) {
+          print('   👤 ${user.fullName} (${user.email}) - Role: ${user.roleName}');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please login again.');
+      } else if (response.statusCode == 403) {
+        throw Exception('Permission denied: You need users:read permission to access user list');
+      } else {
+        throw Exception('Failed to load users: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      _error = e.toString();
+      print('❌ Error loading users: $e');
+      rethrow;
+    } finally {
+      _loadingUsers = false;
+      notifyListeners();
+    }
+  }
+
+  // Get user by ID
+  User? getUserById(int id) {
+    try {
+      return _users.firstWhere((user) => user.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Clear users list
+  void _clearUsers() {
+    _users = [];
+  }
+
+  // Existing methods with user management integration
   Future<bool> checkExistingAuth() async {
     _isLoading = true;
     notifyListeners();
@@ -39,7 +147,6 @@ class AuthProvider with ChangeNotifier {
             email: storedAuth['email']!,
           );
           
-          // Create user from stored data (NO API CALL NEEDED)
           _currentUser = User(
             id: int.parse(storedAuth['userId']!),
             username: storedAuth['email']!.split('@').first,
@@ -53,7 +160,6 @@ class AuthProvider with ChangeNotifier {
           notifyListeners();
           return true;
         } else {
-          // Token expired, try to refresh
           try {
             final newAuth = await _authService.refreshToken(storedAuth['token']!);
             await _loginSuccess(newAuth);
@@ -73,7 +179,6 @@ class AuthProvider with ChangeNotifier {
     return false;
   }
 
-  // Login method
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     _error = null;
@@ -91,7 +196,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Handle successful login
   Future<void> _loginSuccess(LoginResponse response) async {
     _authData = AuthData(
       token: response.token,
@@ -101,7 +205,6 @@ class AuthProvider with ChangeNotifier {
       email: response.email,
     );
 
-    // Save to secure storage
     await SecureStorageService.saveAuthData(
       token: response.token,
       userId: response.userId,
@@ -110,7 +213,6 @@ class AuthProvider with ChangeNotifier {
       expiresAt: response.expiresAt,
     );
 
-    // Create user object from login response data (NO API CALL NEEDED)
     _currentUser = User(
       id: response.userId,
       username: response.email.split('@').first,
@@ -124,7 +226,6 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Logout method
   Future<void> logout() async {
     await _logout();
   }
@@ -133,19 +234,18 @@ class AuthProvider with ChangeNotifier {
     _authData = null;
     _currentUser = null;
     _error = null;
+    _clearUsers();
     
     await SecureStorageService.clearAuthData();
     
     notifyListeners();
   }
 
-  // Clear error
   void clearError() {
     _error = null;
     notifyListeners();
   }
 
-  // Refresh token if needed
   Future<bool> refreshTokenIfNeeded() async {
     if (_authData != null && _authData!.isExpired) {
       try {
@@ -160,7 +260,6 @@ class AuthProvider with ChangeNotifier {
     return true;
   }
 
-  // Helper method to get default name based on role
   String _getDefaultName(int roleId) {
     switch (roleId) {
       case 1: return 'System Administrator';
@@ -171,4 +270,6 @@ class AuthProvider with ChangeNotifier {
       default: return 'User';
     }
   }
+
+
 }

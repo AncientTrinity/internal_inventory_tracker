@@ -1,7 +1,11 @@
+//filename: lib/widgets/navbar/navbar.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart'; // ADD THIS IMPORT
+import '../../screens/notifications/notification_list_screen.dart'; // ADD THIS IMPORT
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -75,92 +79,11 @@ class AppDrawer extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Navigation Items
+          // ========== NAVIGATION ITEMS ==========
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
-              children: [
-                // Dashboard
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.dashboard,
-                  title: 'Dashboard',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // We'll handle navigation later
-                  },
-                ),
-
-                // Assets
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.computer,
-                  title: 'Assets',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // We'll handle navigation later
-                  },
-                ),
-
-                // Tickets
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.confirmation_number,
-                  title: 'Tickets',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // We'll handle navigation later
-                  },
-                ),
-
-                // Users (Admin & IT only)
-                if (user?.isAdmin == true || user?.isITStaff == true)
-                  _buildDrawerItem(
-                    context,
-                    icon: Icons.people,
-                    title: 'Users',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // We'll handle navigation later
-                    },
-                  ),
-
-                // Notifications
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.notifications,
-                  title: 'Notifications',
-                  badgeCount: 0, // We'll implement this later
-                  onTap: () {
-                    Navigator.pop(context);
-                    // We'll handle navigation later
-                  },
-                ),
-
-                const Divider(),
-
-                // Settings
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.settings,
-                  title: 'Settings',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // We'll handle navigation later
-                  },
-                ),
-
-                // Help
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.help,
-                  title: 'Help & Support',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // We'll handle navigation later
-                  },
-                ),
-              ],
+              children: _buildNavigationItems(context, user),
             ),
           ),
 
@@ -187,33 +110,284 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
+  // Method to build navigation items based on user role
+  List<Widget> _buildNavigationItems(BuildContext context, User? user) {
+    if (user?.isAgent == true) {
+      // AGENT-ONLY NAVIGATION
+      return [
+        _buildDrawerItem(
+          context,
+          icon: Icons.dashboard,
+          title: 'Dashboard',
+          onTap: () => _navigateTo(context, '/dashboard'),
+        ),
+        _buildDrawerItem(
+          context,
+          icon: Icons.devices_other,
+          title: 'My Assigned Assets',
+          onTap: () => _navigateTo(context, '/my-assets'),
+        ),
+        _buildDrawerItem(
+          context,
+          icon: Icons.assignment,
+          title: 'My Support Tickets',
+          onTap: () => _navigateTo(context, '/my-tickets'),
+        ),
+        _buildNotificationDrawerItem(context), // UPDATED: Use the new notification item
+        const Divider(),
+        _buildDrawerItem(
+          context,
+          icon: Icons.person,
+          title: 'My Profile',
+          onTap: () => _navigateTo(context, '/profile'),
+        ),
+        _buildDrawerItem(
+          context,
+          icon: Icons.help,
+          title: 'Help & Support',
+          onTap: () => _navigateTo(context, '/help'),
+        ),
+      ];
+    } else {
+      // ALL OTHER ROLES NAVIGATION
+      List<Widget> items = [
+        _buildDrawerItem(
+          context,
+          icon: Icons.dashboard,
+          title: 'Dashboard',
+          onTap: () => _navigateTo(context, '/dashboard'),
+        ),
+        _buildDrawerItem(
+          context,
+          icon: Icons.computer,
+          title: 'Assets',
+          onTap: () => _navigateTo(context, '/assets'),
+        ),
+      ];
+
+      // Add Tickets for authorized non-agents
+      if (user?.canViewAllTickets == true || user?.isViewer == true) {
+        items.add(
+          _buildDrawerItem(
+            context,
+            icon: Icons.confirmation_number,
+            title: 'Tickets',
+            onTap: () => _navigateTo(context, '/tickets'),
+          ),
+        );
+      }
+
+      // Add role-specific features for non-agents
+      if (user?.isStaff == true) {
+        items.addAll([
+          _buildDrawerItem(
+            context,
+            icon: Icons.groups,
+            title: 'My Team',
+            onTap: () => _navigateTo(context, '/my-team'),
+          ),
+          _buildDrawerItem(
+            context,
+            icon: Icons.verified,
+            title: 'Ticket Verification',
+            onTap: () => _navigateTo(context, '/ticket-verification'),
+          ),
+        ]);
+      }
+
+      if (user?.isAdmin == true || user?.isITStaff == true) {
+        items.addAll([
+          _buildDrawerItem(
+            context,
+            icon: Icons.people,
+            title: 'User Management',
+            onTap: () => _navigateTo(context, '/users'),
+          ),
+        ]);
+      }
+
+      if (user?.isAdmin == true) {
+        items.add(
+          _buildDrawerItem(
+            context,
+            icon: Icons.admin_panel_settings,
+            title: 'Role Management',
+            onTap: () => _navigateTo(context, '/roles'),
+          ),
+        );
+      }
+
+      if (user?.isITStaff == true) {
+        items.add(
+          _buildDrawerItem(
+            context,
+            icon: Icons.build,
+            title: 'Service Management',
+            onTap: () => _navigateTo(context, '/service-management'),
+          ),
+        );
+      }
+
+      if (user?.isAdmin == true || user?.isITStaff == true) {
+        items.add(
+          _buildDrawerItem(
+            context,
+            icon: Icons.analytics,
+            title: 'Analytics',
+            onTap: () => _navigateTo(context, '/analytics'),
+          ),
+        );
+      }
+
+      if (user?.canViewAllTickets == true || user?.isStaff == true) {
+        items.add(
+          _buildDrawerItem(
+            context,
+            icon: Icons.bar_chart,
+            title: 'Reports',
+            onTap: () => _navigateTo(context, '/reports'),
+          ),
+        );
+      }
+
+      // Add common features
+      items.addAll([
+        _buildNotificationDrawerItem(context), // UPDATED: Use the new notification item
+        const Divider(),
+        _buildDrawerItem(
+          context,
+          icon: Icons.person,
+          title: 'My Profile',
+          onTap: () => _navigateTo(context, '/profile'),
+        ),
+      ]);
+
+      if (user?.isAdmin == true || user?.isITStaff == true) {
+        items.add(
+          _buildDrawerItem(
+            context,
+            icon: Icons.settings,
+            title: 'System Settings',
+            onTap: () => _navigateTo(context, '/settings'),
+          ),
+        );
+      }
+
+      items.add(
+        _buildDrawerItem(
+          context,
+          icon: Icons.help,
+          title: 'Help & Support',
+          onTap: () => _navigateTo(context, '/help'),
+        ),
+      );
+
+      return items;
+    }
+  }
+
+  // NEW: Special drawer item for notifications with real-time count
+  Widget _buildNotificationDrawerItem(BuildContext context) {
+    return Consumer<NotificationProvider>(
+      builder: (context, notificationProvider, child) {
+        return ListTile(
+          leading: Stack(
+            children: [
+              const Icon(Icons.notifications),
+              if (notificationProvider.unreadCount > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 12,
+                      minHeight: 12,
+                    ),
+                    child: Text(
+                      notificationProvider.unreadCount > 99 
+                          ? '99+' 
+                          : notificationProvider.unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          title: const Text('Notifications'),
+          trailing: notificationProvider.unreadCount > 0
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    notificationProvider.unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : null,
+          onTap: () {
+            Navigator.pop(context); // Close drawer
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const NotificationListScreen(),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Helper method for navigation
+  void _navigateTo(BuildContext context, String route) {
+    Navigator.pop(context); // Close drawer
+    Navigator.pushNamed(context, route);
+  }
+
   // Helper method to build drawer items
   Widget _buildDrawerItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    int badgeCount = 0,
-    required VoidCallback onTap,
-  }) {
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        int badgeCount = 0,
+        required VoidCallback onTap,
+      }) {
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
       trailing: badgeCount > 0
           ? Container(
-              padding: const EdgeInsets.all(4.0),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                badgeCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            )
+        padding: const EdgeInsets.all(4.0),
+        decoration: const BoxDecoration(
+          color: Colors.red,
+          shape: BoxShape.circle,
+        ),
+        child: Text(
+          badgeCount > 99 ? '99+' : badgeCount.toString(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      )
           : null,
       onTap: onTap,
     );
@@ -254,4 +428,6 @@ class AppDrawer extends StatelessWidget {
         return Icons.person;
     }
   }
+
+  // REMOVED: _getUnreadNotificationCount - Now using real provider data
 }

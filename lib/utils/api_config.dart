@@ -1,3 +1,4 @@
+// filename: lib/utils/api_config.dart
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
@@ -19,5 +20,6 @@ class ApiConfig {
   
   static Map<String, String> get headers => {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   };
 }
