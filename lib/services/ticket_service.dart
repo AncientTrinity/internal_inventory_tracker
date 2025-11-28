@@ -2,7 +2,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/ticket.dart';
-import '../models/ticket_comment.dart'; // ADD THIS IMPORT
+import '../models/ticket_comment.dart';
 import '../utils/api_config.dart';
 
 class TicketService {

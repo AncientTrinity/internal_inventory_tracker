@@ -43,7 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Pass current user to dashboard provider
         await dashboardProvider.loadDashboardData(
           authProvider.authData!.token,
-          authProvider.currentUser, // ADD THIS
+          authProvider.currentUser,
         );
         await ticketProvider.loadTickets(authProvider.authData!.token);
       } catch (e) {
@@ -66,20 +66,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
     final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
-    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false); // ADD THIS
+    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false); 
 
     if (authProvider.authData != null) {
       // Pass current user to dashboard provider
       await dashboardProvider.refreshData(
         authProvider.authData!.token,
-        authProvider.currentUser, // ADD THIS
+        authProvider.currentUser, 
       );
       await ticketProvider.loadTickets(authProvider.authData!.token);
-      await notificationProvider.loadUnreadCount(authProvider.authData!.token); // ADD THIS
+      await notificationProvider.loadUnreadCount(authProvider.authData!.token); 
     }
   }
 
-  // ADD THIS: Build notification bell with badge
+  // Build notification bell with badge
   Widget _buildNotificationBell() {
     return Consumer<NotificationProvider>(
       builder: (context, notificationProvider, child) {
@@ -849,7 +849,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Add this helper method for empty state
+
 Widget _buildEmptyActivityItem() {
   return Column(
     children: [
@@ -1177,7 +1177,7 @@ Widget _buildEmptyActivityItem() {
   }
 
 
-// Add this to your dashboard_screen.dart to show ticket statistics:
+
 
   Widget _buildTicketStats() {
     return Consumer<TicketProvider>(
@@ -1363,7 +1363,7 @@ Widget _buildEmptyActivityItem() {
     );
   }
 
-// Add these missing methods to your dashboard_screen.dart
+
 
 // Helper method to get asset status color
 Color _getAssetStatusColor(String status) {
@@ -1449,7 +1449,7 @@ Color _getTicketStatusColor(String status) {
   }
 }
 
-// Add this method to handle empty states gracefully
+
 Widget _buildEmptyDashboardState(String message, {String? subtitle}) {
   return Center(
     child: Column(
@@ -1485,7 +1485,7 @@ Widget _buildEmptyDashboardState(String message, {String? subtitle}) {
   );
 }
 
-// Add error state widget
+
 Widget _buildErrorState(String error) {
   return Center(
     child: Column(
@@ -1596,7 +1596,7 @@ Widget build(BuildContext context) {
   );
 }
 
-// Add this method to your Dashboard, Ticket screens, etc.
+
 Future<void> _refreshNotifications() async {
   final authProvider = Provider.of<AuthProvider>(context, listen: false);
   final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
@@ -1605,9 +1605,4 @@ Future<void> _refreshNotifications() async {
     await notificationProvider.loadUnreadCount(authProvider.authData!.token);
   }
 }
-
-// Call this after creating a ticket, updating status, etc.
-// Example in your ticket creation method:
- // Add this after successful ticket creation
-
 }

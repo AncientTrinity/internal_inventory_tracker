@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/ticket.dart';
-import '../../models/ticket_comment.dart'; // ADD THIS IMPORT
+import '../../models/ticket_comment.dart'; 
 import '../../providers/notification_provider.dart';
 import '../../providers/ticket_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -558,7 +558,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     }
   }
 
-// Add this method to _TicketDetailScreenState class
   Future<void> _showVerificationDialog() async {
     final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -859,7 +858,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     }
   }
 
-// Add this method to show verification info when it's already set
+
   void _showVerificationInfoDialog(Ticket ticket) {
     showDialog(
       context: context,
@@ -902,7 +901,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     );
   }
 
-// Add method to reset verification status
+
 Future<void> _resetVerificationStatus(Ticket ticket) async {
   final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
   final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -1293,7 +1292,7 @@ void _showActionMenu() {
       ),
     );
   }
-  // Add this method to your Dashboard, Ticket screens, etc.
+ 
 Future<void> _refreshNotifications() async {
   final authProvider = Provider.of<AuthProvider>(context, listen: false);
   final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
@@ -1303,7 +1302,5 @@ Future<void> _refreshNotifications() async {
   }
 }
 
-// Call this after creating a ticket, updating status, etc.
-// Example in your ticket creation method:
 
 }

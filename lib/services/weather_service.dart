@@ -62,7 +62,6 @@ class WeatherService {
     }
   }
 
-  // Default location (Belize coordinates from your example)
   Future<WeatherData> getDefaultWeather() async {
     return getWeather(18.3937, -88.3885);
   }

@@ -18,7 +18,6 @@ class ServiceLogProvider with ChangeNotifier {
   int? _currentAssetId;
 
   // Load service logs for an asset
- // In lib/providers/service_log_provider.dart, update the loadServiceLogsForAsset method:
 Future<void> loadServiceLogsForAsset(int assetId, String token) async {
   // Don't load if already loading the same asset
   if (_isLoading && _currentAssetId == assetId) {

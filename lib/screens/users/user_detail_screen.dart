@@ -183,7 +183,7 @@ Future<void> _sendCurrentCredentials() async {
   }
 }
 
- // In user_detail_screen.dart - UPDATE the _resetPassword method
+
 Future<void> _resetPassword() async {
   final userProvider = Provider.of<UserProvider>(context, listen: false);
   final authProvider = Provider.of<AuthProvider>(context, listen: false);

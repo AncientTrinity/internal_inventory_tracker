@@ -376,7 +376,6 @@ Future<void> loadAssetById(int id, String token) async {
       rethrow;
     }
   }
-// In lib/providers/asset_provider.dart - Complete assignment methods
 
 // ========== ASSIGNMENT METHODS ==========
 

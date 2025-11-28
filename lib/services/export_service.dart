@@ -14,7 +14,6 @@ class ExportService {
       // Create CSV data
       final List<List<dynamic>> csvData = [];
       
-      // Add header row
       csvData.add([
         'Internal ID',
         'Asset Type',
@@ -32,7 +31,6 @@ class ExportService {
         'Updated At',
       ]);
 
-      // Add data rows
       for (final asset in assets) {
         csvData.add([
           asset.internalId,

@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/notification_provider.dart'; // ADD THIS IMPORT
-import '../../screens/notifications/notification_list_screen.dart'; // ADD THIS IMPORT
+import '../../providers/notification_provider.dart'; 
+import '../../screens/notifications/notification_list_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -250,9 +250,8 @@ class AppDrawer extends StatelessWidget {
         );
       }
 
-      // Add common features
       items.addAll([
-        _buildNotificationDrawerItem(context), // UPDATED: Use the new notification item
+        _buildNotificationDrawerItem(context),
         const Divider(),
         _buildDrawerItem(
           context,

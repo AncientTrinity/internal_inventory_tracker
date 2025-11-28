@@ -31,7 +31,7 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // ADD THIS MISSING METHOD
+  
   Future<User> getUserById(int userId, String token) async {
     try {
       return await _userService.getUserById(userId, token);
@@ -122,7 +122,7 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Add to user_provider.dart
+
 Future<void> sendPasswordChangeEmail(int userId, String password, String token) async {
   try {
     await _userService.sendPasswordChangeEmail(userId, password, token);
@@ -132,7 +132,6 @@ Future<void> sendPasswordChangeEmail(int userId, String password, String token) 
   }
 }
 
-// In lib/providers/user_provider.dart - UPDATE the resetPassword method
   Future<void> resetPassword(int userId, String newPassword, bool sendEmail, String token) async {
     try {
       await _userService.resetPassword(userId, newPassword, sendEmail, token);

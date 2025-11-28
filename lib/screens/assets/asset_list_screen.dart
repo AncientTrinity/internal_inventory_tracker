@@ -158,7 +158,6 @@ class _AssetListScreenState extends State<AssetListScreen> {
     );
   }
 
-// In lib/screens/assets/asset_list_screen.dart - Bulk assignment methods
 
 // Show bulk assignment dialog
 void _showBulkAssignDialog() {

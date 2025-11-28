@@ -468,7 +468,6 @@ class _TicketFormScreenState extends State<TicketFormScreen> {
     );
   }
 
-  // Add this method to your Dashboard, Ticket screens, etc.
 Future<void> _refreshNotifications() async {
   final authProvider = Provider.of<AuthProvider>(context, listen: false);
   final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
@@ -478,7 +477,4 @@ Future<void> _refreshNotifications() async {
   }
 }
 
-// Call this after creating a ticket, updating status, etc.
-// Example in your ticket creation method:
-//await _refreshNotifications(); // Add this after successful ticket creation
 }

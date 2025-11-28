@@ -148,7 +148,6 @@ Future<Asset> getAssetById(int id, String token) async {
 }
 
   // Create new asset
- // In lib/services/asset_service.dart - Update the createAsset method
 
 Future<Asset> createAsset(Asset asset, String token) async {
   try {

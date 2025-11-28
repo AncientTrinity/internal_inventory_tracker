@@ -124,7 +124,6 @@ class _AssetDetailScreenState extends State<AssetDetailScreen> {
     );
   }
 
-  // In lib/screens/assets/asset_detail_screen.dart - Individual assignment methods
 
 // Show user selection for individual assignment
   void _showUserSelection() async {
@@ -1038,7 +1037,6 @@ Color _getRoleColor(int roleId) {
     );
   }
 
-  // In lib/screens/assets/asset_detail_screen.dart, find the _buildServiceLogPreviewItem method:
   Widget _buildServiceLogPreviewItem(ServiceLog serviceLog) {
     final dateFormat = DateFormat('MMM dd, yyyy');
 

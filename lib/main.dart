@@ -9,7 +9,7 @@ import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/service_log_provider.dart';
 import 'providers/ticket_provider.dart';
-import 'providers/user_provider.dart'; // ADD THIS IMPORT
+import 'providers/user_provider.dart';
 import 'providers/notification_provider.dart'; //notifications
 
 import 'screens/assets/asset_form_screen.dart';
@@ -21,17 +21,17 @@ import 'screens/placeholder/placeholder_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/splash_screen.dart';
 
-// ADD THESE TICKET SCREEN IMPORTS
+// SCREEN IMPORTS
 import 'screens/tickets/ticket_list_screen.dart';
 import 'screens/tickets/ticket_detail_screen.dart';
 import 'screens/tickets/ticket_form_screen.dart';
 
-// ADD USER MANAGEMENT IMPORTS
-import 'screens/users/user_list_screen.dart'; // ADD THIS
-import 'screens/users/user_form_screen.dart'; // ADD THIS
-import 'screens/users/user_detail_screen.dart'; // ADD THIS
+// USER MANAGEMENT IMPORTS
+import 'screens/users/user_list_screen.dart'; 
+import 'screens/users/user_form_screen.dart'; 
+import 'screens/users/user_detail_screen.dart'; 
 
-// Replace the main function and InternalInventoryTrackerApp class
+//  main function and InternalInventoryTrackerApp class
 import 'providers/reports_provider.dart';
 void main() {
   runApp(const InternalInventoryTrackerApp());
@@ -82,7 +82,7 @@ class InternalInventoryTrackerApp extends StatelessWidget {
           '/tickets': (context) => const TicketListScreen(),
           '/tickets/create': (context) => const TicketFormScreen(),
 
-          // User Management - REPLACE PLACEHOLDER WITH ACTUAL SCREENS
+          // User Management - 
           '/users': (context) => const UserListScreen(), 
           '/users/create': (context) => const UserFormScreen(), 
           '/users/edit': (context) => const UserFormScreen(), 

@@ -100,7 +100,6 @@ class UserService {
       throw Exception('Failed to load user: $e');
     }
   }
-   // Add these methods to your lib/services/user_service.dart
 
 // Create user
 Future<User> createUser(Map<String, dynamic> userData, String token) async {

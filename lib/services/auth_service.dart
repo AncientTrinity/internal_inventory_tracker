@@ -47,6 +47,4 @@ class AuthService {
     }
   }
 
-  // NOTE: getCurrentUser method is removed since the endpoint doesn't exist yet
-  // We'll add it back when we implement the /me endpoint in the backend
 }
