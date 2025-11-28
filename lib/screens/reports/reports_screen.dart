@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'dart:html' as html; // Add this for web
+import 'dart:html' as html; // For web only
 import 'package:flutter/foundation.dart'; // For kIsWeb
 
 import '../../providers/reports_provider.dart';
@@ -791,52 +791,76 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _exportReport() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final reportsProvider = Provider.of<ReportsProvider>(context, listen: false);
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final reportsProvider = Provider.of<ReportsProvider>(context, listen: false);
 
-    if (_isExporting) return;
+  if (_isExporting) return;
 
-    setState(() { _isExporting = true; });
+  setState(() { _isExporting = true; });
 
-    try {
-      final csvData = await reportsProvider.exportReport(authProvider.authData!.token);
-      final fileName = 'inventory_report_${DateTime.now().millisecondsSinceEpoch}.csv';
-      final fileData = utf8.encode(csvData);
+  try {
+    final csvData = await reportsProvider.exportReport(authProvider.authData!.token);
+    final fileName = 'inventory_report_${DateTime.now().millisecondsSinceEpoch}.csv';
 
+    if (kIsWeb) {
       // For web - use browser download
-      if (kIsWeb) {
-        _downloadFileWeb(fileName, fileData);
-      } else {
-        // For mobile - save to documents
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/$fileName');
-        await file.writeAsBytes(fileData);
-      }
+      _downloadFileWeb(fileName, csvData as List<int>);
+    } else {
+      // For Android/iOS - save to documents directory
+      await _saveFileMobile(fileName, csvData);
+    }
 
-      if (!mounted) return;
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Report exported as $fileName'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Report exported as $fileName'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Export failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() { _isExporting = false; });
-      }
+  } catch (e) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Export failed: $e'),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() { _isExporting = false; });
     }
   }
+}
+
+// Mobile file save method
+Future<void> _saveFileMobile(String fileName, String csvData) async {
+  try {
+    // Get the documents directory
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/$fileName');
+    
+    // Write the file
+    await file.writeAsString(csvData);
+    
+    print('📁 File saved to: ${file.path}');
+    
+    // Optional: Show a dialog with the file path
+    if (!mounted) return;
+    
+    // You could use the share package to share the file
+    // For now, just log the path
+    print('📁 Export completed: ${file.path}');
+    
+  } catch (e) {
+    print('❌ File save error: $e');
+    rethrow;
+  }
+}
 
 // Separate method for web download
   void _downloadFileWeb(String fileName, List<int> bytes) {
